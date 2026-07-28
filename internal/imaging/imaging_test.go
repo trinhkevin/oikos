@@ -3,6 +3,7 @@ package imaging
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -72,5 +73,64 @@ func TestThumbnailResizesToLongEdge(t *testing.T) {
 	}
 	if w != 400 || h != 200 {
 		t.Errorf("thumbnail = %dx%d, want 400x200 (long edge 400, 2:1 aspect preserved)", w, h)
+	}
+}
+
+// TestMultiFrameSourceUsesFirstFrameOnly guards against a class of bug where
+// ImageMagick's `-format` string is applied once per frame/image with no
+// separator inserted between them. For a multi-frame/multi-image source
+// (an animated GIF, a multi-page TIFF, or — the realistic case for guest
+// photo uploads — a Portrait-mode HEIC that stores an auxiliary depth map
+// alongside the primary photo), naive parsing of `identify`'s output can
+// silently misparse, and a convert command with no frame selector can
+// write multiple numbered output files instead of a single dstPath.
+//
+// This test builds a synthetic 2-frame GIF whose frames have different
+// sizes (100x50, then 200x100) and confirms both ConvertAndStrip and the
+// underlying identify logic report frame 0's dimensions only, and that
+// exactly one output file is produced.
+func TestMultiFrameSourceUsesFirstFrameOnly(t *testing.T) {
+	requireMagick(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+
+	src := filepath.Join(dir, "multiframe.gif")
+	if err := exec.CommandContext(ctx, "magick",
+		"-delay", "10",
+		"-size", "100x50", "xc:red",
+		"-size", "200x100", "xc:blue",
+		src,
+	).Run(); err != nil {
+		t.Fatalf("generating multi-frame test fixture: %v", err)
+	}
+
+	dst := filepath.Join(dir, "out.jpg")
+	result, err := ConvertAndStrip(ctx, src, dst)
+	if err != nil {
+		t.Fatalf("ConvertAndStrip: %v", err)
+	}
+	if result.Width != 100 || result.Height != 50 {
+		t.Errorf("Result = %+v, want 100x50 (frame 0's dimensions, not frame 1's 200x100 or a misparse of both concatenated)", result)
+	}
+
+	// Confirm exactly one output file was written — a frame selector
+	// omission would cause ImageMagick to write "out-0.jpg", "out-1.jpg"
+	// instead of the single dst path this function's contract promises.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("reading temp dir: %v", err)
+	}
+	var outputFiles []string
+	for _, e := range entries {
+		if e.Name() != "multiframe.gif" {
+			outputFiles = append(outputFiles, e.Name())
+		}
+	}
+	if len(outputFiles) != 1 || outputFiles[0] != "out.jpg" {
+		t.Errorf("expected exactly one output file %q, got %v", "out.jpg", outputFiles)
+	}
+
+	if _, err := os.Stat(dst); err != nil {
+		t.Errorf("expected %s to exist: %v", dst, err)
 	}
 }
