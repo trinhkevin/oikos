@@ -16,6 +16,7 @@ templ GuestbookPage(entries []guestbook.Entry) {
 templ guestbookPageBody(entries []guestbook.Entry, formErr *GuestbookFormError) {
 	<h1>Guest Book</h1>
 	@GuestbookForm(formErr)
+	<div id="guestbook-rl-message"></div>
 	<div id="guestbook-entries">
 		@GuestbookEntries(entries)
 	</div>

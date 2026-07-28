@@ -33,6 +33,7 @@ templ photosPageBody(gallery []photos.Photo, page int, hasPrev, hasMore, showDis
 		<progress id="upload-progress" value="0" max="100"></progress>
 		<button type="submit">Upload</button>
 	</form>
+	<div id="photos-rl-message"></div>
 	<div id="photos-content">
 		@PhotosContent(nil, gallery, page, hasPrev, hasMore)
 	</div>

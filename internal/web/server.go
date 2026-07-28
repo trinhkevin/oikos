@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"io/fs"
 	"net/http"
+	"time"
 
 	homesite "homesite"
 	"homesite/internal/config"
@@ -14,14 +15,16 @@ import (
 )
 
 type Server struct {
-	mux            *http.ServeMux
-	cfg            *config.Config
-	menuLoader     *content.MenuLoader
-	catLoader      *content.CatLoader
-	welcomeLoader  *content.WelcomeLoader
-	photosStore    *photos.Store
-	photosIngester *photos.Ingester
-	guestbookStore *guestbook.Store
+	mux              *http.ServeMux
+	cfg              *config.Config
+	menuLoader       *content.MenuLoader
+	catLoader        *content.CatLoader
+	welcomeLoader    *content.WelcomeLoader
+	photosStore      *photos.Store
+	photosIngester   *photos.Ingester
+	guestbookStore   *guestbook.Store
+	guestbookLimiter *rateLimiter
+	photosLimiter    *rateLimiter
 }
 
 func New(cfg *config.Config, db *sql.DB) *Server {
@@ -38,6 +41,10 @@ func New(cfg *config.Config, db *sql.DB) *Server {
 		photosIngester: photos.NewIngester(photosStore, cfg.Photos, cfg.UploadsDir),
 		guestbookStore: guestbook.NewStore(db),
 	}
+
+	windowDur := time.Duration(cfg.Limits.WindowMinutes) * time.Minute
+	s.guestbookLimiter = newRateLimiter(cfg.Limits.GuestbookPerWindow, windowDur)
+	s.photosLimiter = newRateLimiter(cfg.Limits.PhotoUploadsPerWindow, windowDur)
 
 	staticSub, err := fs.Sub(homesite.StaticFS, "static")
 	if err != nil {

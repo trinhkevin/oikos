@@ -12,6 +12,7 @@ import (
 func testConfig() *config.Config {
 	return &config.Config{
 		Site:       config.SiteConfig{Title: "Brivin Household"},
+		Limits:     config.LimitsConfig{GuestbookPerWindow: 2, PhotoUploadsPerWindow: 30, WindowMinutes: 15},
 		ContentDir: "../../content",
 		DataDir:    "../../data",
 		UploadsDir: "../../uploads",

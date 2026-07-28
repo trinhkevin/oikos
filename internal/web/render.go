@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"github.com/a-h/templ"
+
+	"homesite/views"
 )
 
 // render writes a templ.Component to w as text/html, logging (not
@@ -16,4 +18,8 @@ func render(w http.ResponseWriter, r *http.Request, c templ.Component) {
 	if err := c.Render(r.Context(), w); err != nil {
 		log.Printf("web: render error: %v", err)
 	}
+}
+
+func renderRateLimited(w http.ResponseWriter, r *http.Request) {
+	render(w, r, views.RateLimitedMessage())
 }
