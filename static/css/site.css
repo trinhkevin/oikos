@@ -39,9 +39,17 @@
 }
 
 /* The three QR pages (Wi-Fi, Music, Share) lock to light mode: an
-   inverted QR fails to scan on many camera apps. */
+   inverted QR fails to scan on many camera apps. `color-scheme: light`
+   only affects UA form-control/scrollbar styling -- it does NOT stop
+   the `prefers-color-scheme: dark` media query above from matching, so
+   every custom property that query redefines on :root must be pinned
+   back to its light value here too. Without this, .site-header and
+   .site-title (which read --ground/--ink) would still render dark on a
+   QR page even though color-scheme and body are locked light. */
 html.qr-page {
 	color-scheme: light only;
+	--ink: #2b2420;
+	--ground: #f7f1e8;
 }
 html.qr-page body {
 	background: #ffffff;
