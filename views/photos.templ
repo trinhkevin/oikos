@@ -1,0 +1,75 @@
+// views/photos.templ
+package views
+
+import (
+	"fmt"
+
+	"homesite/internal/photos"
+)
+
+type UploadFailure struct {
+	Filename string
+	Message  string
+}
+
+type UploadResult struct {
+	Total     int
+	Succeeded int
+	Failures  []UploadFailure
+}
+
+templ PhotosPage(gallery []photos.Photo, page int, hasPrev, hasMore, showDiskWarning bool) {
+	@Layout("Upload Photos", HeaderStandard, photosPageBody(gallery, page, hasPrev, hasMore, showDiskWarning))
+}
+
+templ photosPageBody(gallery []photos.Photo, page int, hasPrev, hasMore, showDiskWarning bool) {
+	<h1>Upload Photos</h1>
+	if showDiskWarning {
+		<p class="disk-warning">Photo storage is almost full — uploads may start failing soon.</p>
+	}
+	<form hx-post="/photos" hx-encoding="multipart/form-data" hx-target="#photos-content" hx-swap="innerHTML"
+		onsubmit="document.getElementById('upload-progress').value=0">
+		<input type="file" name="photos" accept="image/jpeg,image/png,image/webp,image/heic" multiple required/>
+		<progress id="upload-progress" value="0" max="100"></progress>
+		<button type="submit">Upload</button>
+	</form>
+	<div id="photos-content">
+		@PhotosContent(nil, gallery, page, hasPrev, hasMore)
+	</div>
+	<script>
+		document.body.addEventListener('htmx:xhrProgress', function(evt) {
+			var bar = document.getElementById('upload-progress');
+			if (bar && evt.detail.lengthComputable) {
+				bar.value = (evt.detail.loaded / evt.detail.total) * 100;
+			}
+		});
+	</script>
+}
+
+templ PhotosContent(result *UploadResult, gallery []photos.Photo, page int, hasPrev, hasMore bool) {
+	if result != nil {
+		<p class="upload-result">{ fmt.Sprintf("%d of %d uploaded", result.Succeeded, result.Total) }</p>
+		if len(result.Failures) > 0 {
+			<ul class="upload-failures">
+				for _, f := range result.Failures {
+					<li>{ f.Filename }: { f.Message }</li>
+				}
+			</ul>
+		}
+	}
+	<div class="photo-grid">
+		for _, p := range gallery {
+			<a href={ templ.URL("/uploads/" + p.Path) } class="photo-thumb">
+				<img src={ "/uploads/" + p.ThumbPath } alt="Guest photo" loading="lazy"/>
+			</a>
+		}
+	</div>
+	<nav class="pagination">
+		if hasPrev {
+			<a href={ templ.URL(fmt.Sprintf("/photos?page=%d", page-1)) }>&larr; Newer</a>
+		}
+		if hasMore {
+			<a href={ templ.URL(fmt.Sprintf("/photos?page=%d", page+1)) }>Older &rarr;</a>
+		}
+	</nav>
+}
