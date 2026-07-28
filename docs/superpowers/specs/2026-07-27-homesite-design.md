@@ -4,14 +4,14 @@
 **Status:** Approved for planning
 
 A Raspberry Pi–hosted site for guests in the house. Guests join the WiFi, scan a QR code,
-and land on a mobile-first hub: cat biographies, drink and snack menus, a collaborative
-Spotify playlist, a photo upload gallery, and a guest book.
+and land on a mobile-first hub: cat biographies, drink and snack menus, live Spotify
+now-playing with direct queue requests, a photo upload gallery, and a guest book.
 
 ## Goals
 
 - Reachable from any guest phone on the home network with no app install and no typing
 - Menus and cat biographies editable by hand over SSH, live on the next page refresh
-- Guests add songs to a real Spotify playlist via a QR that never expires
+- Guests see what's currently playing and add songs straight to the queue, unmoderated
 - Guests upload photos that persist on the Pi and survive its SD card dying
 - Runs unattended; survives reboots and power cuts without intervention
 
@@ -25,7 +25,7 @@ Explicitly out of scope. Adding any of these is a new spec.
 - User accounts or logins. Guests optionally type a name; nothing is verified.
 - Docker. Single binary plus systemd.
 - Browser/end-to-end tests.
-- Spotify playback control, queue manipulation, or Jam integration (see Music).
+- Spotify Jam integration (see Music) — the Web API has no Jam endpoints.
 
 ## Hardware and OS
 
@@ -105,9 +105,9 @@ no TLS. The Go binary binds `:80` directly, running as a non-root user with
 | Storage | SQLite via `modernc.org/sqlite` | Pure Go, so cross-compiling needs no CGO toolchain. |
 | Images | ImageMagick via `exec` | HEIC decoding, EXIF stripping, thumbnails. Keeps the Go binary CGO-free. |
 | Markdown | `goldmark` | Cat biographies. |
-| QR | `github.com/skip2/go-qrcode` | WiFi, playlist, and site QRs. |
+| QR | `github.com/skip2/go-qrcode` | WiFi and site QRs. |
 | Config | `gopkg.in/yaml.v3` | Content files and `config.yaml`. |
-| Fonts | Lora (SIL OFL), self-hosted `woff2` | See Visual direction. |
+| Fonts | Butler (free, Fabian De Smet) for headlines; Lora (SIL OFL) for body — both self-hosted `woff2` | See Visual direction. |
 
 Pi packages: `apt install imagemagick libheif-examples restic`.
 
@@ -117,10 +117,18 @@ Pi packages: `apt install imagemagick libheif-examples restic`.
 on larger screens, rather than desktop layouts squeezed down. Every interactive target is
 at least 44px. The site is used one-handed, standing up, slightly drunk, in bad lighting.
 
-**Lora** for headings and body, self-hosted as `woff2` and subset to Latin. Lora is warmer
-and lower-contrast than a Didone — it reads editorial-cozy rather than fashion-austere,
-which suits a household. To keep it from reading as a default blog theme, the personality
-comes from typographic decisions rather than the font choice alone:
+**Butler** for headlines, **Lora** for body — both self-hosted as `woff2`, subset to Latin.
+Butler is a high-contrast display serif (Fabian De Smet, free for commercial use — the
+bundled license file must be checked on download, since third-party mirrors attach CC
+BY-SA 4.0 terms while the designer's own site describes it more loosely; keep whichever
+license file ships in the download alongside the font, and add an attribution line if it
+turns out to be CC BY-SA). Butler is built for large display sizes only — its hairlines
+disappear and readability suffers at body-copy sizes, so it is never used below a heading
+threshold (roughly 24px and up). Lora carries every other text on the page: menu items, cat
+bios, guest book entries, form labels. Lora is warmer and lower-contrast than a Didone — it
+reads editorial-cozy rather than fashion-austere, which suits a household and pairs well
+under a bolder display face. To keep the pairing from reading as a default blog theme, the
+personality comes from typographic decisions as much as the fonts themselves:
 
 - Large scale jumps between levels — display sizes genuinely display, no timid `1.2rem`
   headings
@@ -128,7 +136,7 @@ comes from typographic decisions rather than the font choice alone:
 - Restrained palette: warm off-white ground, near-black ink, one saturated accent
 - Generous whitespace and a single-column measure capped around 60 characters
 - Full-bleed imagery against tight text blocks for contrast
-- Dark mode honored everywhere **except the three QR pages** (see QR pages)
+- Dark mode honored everywhere **except the two QR pages** (see QR pages)
 
 Detailed visual execution is deferred to implementation, where the `frontend-design` skill
 applies.
@@ -144,7 +152,7 @@ Ten sections, in this order:
 | 3 | `/coffee` | Coffee Menu | Current coffee drinks |
 | 4 | `/cocktails` | Cocktail Menu | Current cocktails |
 | 5 | `/refreshments` | Refreshments | Current snacks and food |
-| 6 | `/music` | Music Requests | Collaborative Spotify playlist QR and track list |
+| 6 | `/music` | Music Requests | Now playing, search, and unmoderated queue requests |
 | 7 | `/photos` | Upload Photos | Guest photo upload and gallery |
 | 8 | `/guestbook` | Guest Book | Signed entries with optional photo |
 | 9 | `/cats` | Meet the Cats | Cat biographies |
@@ -162,17 +170,18 @@ Header reads **Brivin Household** on every page.
 This scales past ten items and avoids pill nav's failure mode, where guests never discover
 what scrolled off-screen.
 
-## The three QR pages
+## The two QR pages
 
-`/wifi`, `/music`, and `/share` each show exactly one QR code. They are separate pages
-because they serve different moments, and a page with two codes invites scanning the wrong
-one.
+`/wifi` and `/share` each show exactly one QR code. They are separate pages because they
+serve different moments, and a page with two codes invites scanning the wrong one. `/music`
+is **not** a QR page — now-playing and search work entirely within the site itself, with no
+external link to encode.
 
 Shared display constraints, all following from "scanned off a phone screen held at arm's
 length":
 
 - **White ground, black modules, regardless of the viewer's system theme.** An inverted QR
-  fails on many camera apps. These three pages opt out of dark mode entirely.
+  fails on many camera apps. These two pages opt out of dark mode entirely.
 - **Error correction level Q**, large render, generous quiet zone — reads at an angle, off a
   glossy screen, in dim light.
 - **Minimal surrounding chrome** so nothing else competes for the camera.
@@ -202,8 +211,6 @@ Encodes `http://home.arpa`. Useful **guest-to-guest**: anyone already browsing c
 channel. Below the QR: `home.arpa` large, `192.168.1.50` small as the resolver-bypass
 fallback.
 
-### `/music` — see Music
-
 ## Features
 
 ### Welcome (`/`)
@@ -213,34 +220,49 @@ A short hello in prose, then the card grid to the other nine sections. Copy live
 
 ### Music Requests (`/music`)
 
-A **collaborative Spotify playlist**, not a Jam and not queue control.
+**Live now-playing plus direct, unmoderated queue requests** — guests search for a track and
+it goes straight into the host's Spotify queue, no approval step.
 
-**Why:** the Spotify Web API has no Jam endpoints — developers have requested them since
-2023 and they remain open forum suggestions with no status. A Jam invite link is also
-per-session, so any QR built on one goes stale every time the Jam restarts. A collaborative
-playlist has a **permanent URL**, which means a QR printed or displayed once works forever,
-with no OAuth, no refresh tokens, and no host action per party.
+**Why not a Jam:** the Spotify Web API has no Jam endpoints — developers have requested them
+since 2023 and they remain open forum suggestions with no status. Jam is not buildable here.
 
-Setup, once: create a playlist, toggle **Collaborative** on, make it public, and put its
-URL in `config.yaml`.
+**Why this needs OAuth, unlike everything else on the site:** reading what's currently
+playing and adding to the queue are both scoped to a real user's device, not a public
+resource — there is no app-only equivalent, which is why every other integration in this
+project deliberately avoids OAuth and this one cannot. The authorization is a **one-time
+host setup step**, not something guests ever see:
+
+1. Register a Spotify app; set the redirect URI to `http://127.0.0.1:8080/spotify/callback`
+   (a loopback address — Spotify rejects non-HTTPS redirect URIs except on loopback). Port
+   `8080` here is the SSH tunnel's local end, independent of whatever port the site itself
+   listens on (`:80` on the Pi, `:8080` locally) — the tunnel is what remaps it.
+2. From the Mac: `ssh -L 8080:localhost:80 pi@192.168.1.50` (forwards local `8080` to the
+   Pi's real listening port).
+3. Open `http://127.0.0.1:8080/spotify/login` and approve the requested scopes
+   (`user-read-currently-playing`, `user-read-playback-state`, `user-modify-playback-state`).
+4. The refresh token is stored in the `oauth_tokens` table; access tokens refresh
+   automatically from then on. This step is repeated only if the refresh token is ever
+   revoked from the Spotify account's connected-apps settings.
+
+`/spotify/login` and `/spotify/callback` **reject any request whose `RemoteAddr` is not
+loopback**, so the authorization flow itself is not guest-reachable even though it shares the
+same port as the rest of the site.
 
 The page shows:
 
-- A QR encoding the playlist URL — scanning opens it in the guest's Spotify app
-- A tap-through link, for guests already reading on their phone
-- **The playlist's current tracks**, read via the Spotify Web API using the
-  **client-credentials flow** — app-only auth against a public playlist, requiring no user
-  OAuth and storing no user tokens. Guests see what is already on the list and stop adding
-  duplicates.
+- **Now playing** — track name and artist, polled from
+  `GET /v1/me/player/currently-playing` on a short server-side cache (10s) so a room full of
+  guests loading the page doesn't hammer the API. Shows a quiet "Nothing's playing" state
+  when no active playback exists, rather than an error.
+- **A search box** — `GET /music/search?q=` returns an HTMX fragment of matching tracks via
+  `GET /v1/search?type=track`.
+- **Tap a result to queue it** — `POST /music/request` calls
+  `POST /v1/me/player/queue?uri=…` directly. No approval step, no visible moderation queue —
+  a tap is a queue add.
 
-Track list behavior: cached in memory for 60 seconds so a room full of guests refreshing
-does not hammer the API. If Spotify is unreachable, the QR and link still render and the
-track list is replaced with a quiet note. **The QR must never depend on the API call
-succeeding.**
-
-Accepted tradeoffs: guests need a Spotify account to add (free tier is fine; only the host
-needs Premium, and only for playback). The link works from anywhere, forever — so someone
-can add songs days later. Both are fine for a household.
+Requests are rate-limited (see Rate limiting) and logged to `song_requests` — not for
+moderation, but so a failed queue-add has a debugging trail and so "who added that" is
+answerable if it ever needs to be.
 
 ### Upload Photos (`/photos`)
 
@@ -385,9 +407,32 @@ CREATE TABLE photos (
   client_ip   TEXT    NOT NULL
 );
 CREATE INDEX idx_photos_created ON photos(created_at DESC);
+
+CREATE TABLE oauth_tokens (
+  provider      TEXT PRIMARY KEY,       -- 'spotify'
+  refresh_token TEXT NOT NULL,
+  access_token  TEXT,
+  expires_at    TEXT,
+  scopes        TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+
+CREATE TABLE song_requests (
+  id           INTEGER PRIMARY KEY,
+  track_uri    TEXT NOT NULL,
+  track_name   TEXT NOT NULL,
+  artist_name  TEXT NOT NULL,
+  requested_by TEXT,                    -- optional nickname
+  created_at   TEXT NOT NULL,
+  client_ip    TEXT NOT NULL,
+  status       TEXT NOT NULL            -- 'queued' | 'failed'
+);
 ```
 
-No `oauth_tokens` table. The collaborative-playlist design stores no user tokens.
+`oauth_tokens` holds exactly one row (`provider = 'spotify'`) — the refresh token from the
+one-time host authorization. `song_requests` is not a moderation queue (nothing here is
+approved before reaching Spotify) — it exists so a failed queue-add has a debugging trail
+and so "who requested that" is answerable.
 
 ## Repository layout
 
@@ -398,11 +443,11 @@ homesite/
   internal/guestbook/         entry create/list, validation
   internal/photos/            ingest pipeline, gallery queries, disk cap
   internal/imaging/           ImageMagick exec wrapper: convert, strip, thumbnail
-  internal/spotify/           client-credentials auth, playlist read, cache
-  internal/qr/                SVG render; WiFi, URL, and playlist payload builders
+  internal/spotify/           OAuth flow, token refresh, now-playing, search, queue-add
+  internal/qr/                SVG render; WiFi and URL payload builders
   internal/web/               routes, handlers, templ components
   views/                      .templ files
-  static/                     CSS, htmx.min.js, Lora woff2 (go:embed)
+  static/                     CSS, htmx.min.js, Butler + Lora woff2 (go:embed)
   deploy/homesite.service
   deploy/backup.sh
   docs/RUNBOOK.md             SD card failure recovery
@@ -436,7 +481,10 @@ a real Spotify, a real ImageMagick, nor a real filesystem.
 | `GET /` | Welcome and nav hub |
 | `GET /wifi` | WiFi join QR |
 | `GET /coffee`, `/cocktails`, `/refreshments` | Menus |
-| `GET /music` | Playlist QR, link, cached track list |
+| `GET /music` | Now playing, search box, recent requests |
+| `GET /music/search?q=` | HTMX fragment of matching tracks |
+| `POST /music/request` | Queue a track → HTMX fragment |
+| `GET /spotify/login`, `GET /spotify/callback` | One-time host OAuth; **loopback-only** |
 | `GET /photos` | Gallery plus upload form |
 | `POST /photos` | Multi-file upload → HTMX fragment |
 | `GET /guestbook` | Entries plus form |
@@ -455,13 +503,19 @@ not reset them. A restart resets all counters, which is acceptable.
 
 - Guest book entries: 2 per 15 minutes
 - Photo uploads: 30 files per 15 minutes
+- Song requests: 3 per 15 minutes — the one limit that matters most here, since queueing is
+  unmoderated and goes straight to Spotify with no approval step
 
 Every failure renders a friendly fragment. Raw errors and status codes are logged, never
 shown.
 
 | Failure | Guest sees |
 |---|---|
-| Spotify unreachable or 429 | QR and link render normally; track list replaced with "Can't load the list right now" |
+| No active Spotify device | "Nothing's playing yet — ask the host to start the music 🎵" |
+| Refresh token revoked or absent | "Song requests are down right now" (logged for the host; re-run the one-time OAuth setup) |
+| Spotify 429 on search/queue/now-playing | "Spotify's throttling us — try again in a minute" |
+| Spotify 5xx or timeout | "Couldn't reach Spotify, try again" |
+| Search returns nothing | "No matches — try the artist name" |
 | Upload is not a real image | "That file isn't a photo — JPEG, PNG, WebP, or HEIC please" |
 | Upload over 25MB | "That photo's too big — 25MB max" |
 | Disk cap reached | "Photo storage is full — tell Kevin" (and a host warning past 85%) |
@@ -498,12 +552,12 @@ Table-driven Go tests. No browser automation.
 | Package | Approach |
 |---|---|
 | `content` | Fixture YAML and markdown in `testdata/`; assert parsed structs. Includes a malformed file asserting last-good-version fallback. |
-| `qr` | Assert exact payload strings — WiFi with `;` `,` `:` `\` in the password and the `hidden` flag, plus URL and playlist payloads. Assert payloads, not pixels. |
+| `qr` | Assert exact payload strings — WiFi with `;` `,` `:` `\` in the password and the `hidden` flag, plus URL payloads. Assert payloads, not pixels. |
 | `guestbook` | In-memory SQLite; create, length caps, ordering, `hidden` exclusion, photo linkage. |
 | `photos` | Fake `imaging` implementation. Content-type sniffing including a `.jpg`-named text file, size limit, disk cap rejection, partial-batch reporting. |
 | `imaging` | Integration-tagged, skipped when ImageMagick is absent. Asserts HEIC converts, EXIF GPS is gone from output, thumbnail dimensions are correct. |
-| `spotify` | `httptest.Server` with canned playlist JSON; token expiry and refresh, 60s cache behavior, and that a 500 leaves the QR intact. |
-| `web` | `httptest` requests; assert fragments contain expected content and that all ten routes render. |
+| `spotify` | `httptest.Server` with canned JSON for now-playing/search/queue; token refresh on expiry; the failure-table rows above each produce the right sentinel. |
+| `web` | `httptest` requests; assert fragments contain expected content, that all ten routes render, and that `/spotify/*` rejects any non-loopback caller. |
 
 ## Local development
 
@@ -528,12 +582,15 @@ Requirements this places on the design:
   review is guesswork.
 - **ImageMagick is a Homebrew dependency on the Mac**, matching the `apt` package on the Pi.
   The `imaging` package shells out identically on both.
-- Spotify playlist reads work locally unchanged — the Mac has internet.
+- Spotify's OAuth setup runs the same way locally as on the Pi, except the loopback
+  redirect needs no SSH tunnel at all — `http://127.0.0.1:8080/spotify/login` is already
+  reachable directly on the Mac serving on `:8080`. One real authorization is needed per
+  development machine to exercise now-playing/search/queue against the real API.
 
 **Design review happens on a real phone, not a desktop browser.** The Mac serves on its LAN
 address, so `http://<mac-ip>:8080` opens on the actual device the site is designed for.
 DevTools device emulation is fine for fast iteration but misrepresents tap targets, real
-viewport height with browser chrome, font rendering, and — critically for the three QR pages
+viewport height with browser chrome, font rendering, and — critically for the two QR pages
 — whether a code actually scans off a real screen. Those pages cannot be validated in an
 emulator at all.
 
@@ -588,10 +645,10 @@ wifi:
   auth: WPA
   hidden: false
 spotify:
-  playlist_url: "https://open.spotify.com/playlist/..."
-  client_id: "..."                     # client-credentials only
+  client_id: "..."
   client_secret: "..."
-  cache_seconds: 60
+  redirect_uri: "http://127.0.0.1:8080/spotify/callback"
+  now_playing_cache_seconds: 10
 photos:
   max_file_bytes: 26214400             # 25MB
   max_total_bytes: 85899345920         # 80GB cap
@@ -600,6 +657,7 @@ photos:
 limits:
   guestbook_per_window: 2
   photo_uploads_per_window: 30
+  song_requests_per_window: 3
   window_minutes: 15
 content_dir: "/srv/homesite/content"
 data_dir: "/srv/homesite/data"
@@ -612,18 +670,25 @@ Secrets live only in this file. It is never committed; the repo carries
 ## Security posture
 
 The site is unauthenticated by design. Anyone on the WiFi can read every page, sign the
-guest book, upload photos, and get the playlist link — which is the intent. The controls
+guest book, upload photos, and queue a song directly — which is the intent. The controls
 that matter:
 
 - No inbound path from the internet: no port forward, no tunnel, no public DNS record
 - **EXIF stripped from every upload**, so guest photos cannot leak location or device data
   to other guests browsing the gallery
 - Uploads identified by content sniffing, never by filename or client MIME type; stored
-  under generated ULIDs, never guest-supplied names
+  under generated IDs, never guest-supplied names
 - `/uploads/*` serves only from the uploads directory, with path traversal rejected
-- No user OAuth tokens stored anywhere; Spotify auth is app-only and read-only
-- WiFi password and Spotify credentials confined to a `0600` config file
+- **The Spotify refresh token is the one piece of guest-adjacent secret state this design
+  stores** — it lives in `oauth_tokens`, on the same filesystem as everything else, with no
+  extra encryption at rest (matching the rest of the data model; the threat model is a LAN
+  party, not a hostile host). `/spotify/login` and `/spotify/callback` reject any request
+  whose `RemoteAddr` is not loopback, so a guest on the WiFi cannot reach the authorization
+  flow even though it shares the site's port. The token's blast radius if leaked is queue
+  control and playback visibility on the host's Spotify account — not the account password.
+- WiFi password and Spotify client credentials confined to a `0600` config file
 - Service runs as a non-privileged user under systemd hardening, with exactly two writable
   directories
-- Rate limits on both write endpoints
+- Rate limits on every write endpoint, including song requests — the one limit that matters
+  most, since queueing is unmoderated
 - Output escaped by Templ throughout; guest input never rendered as raw HTML
