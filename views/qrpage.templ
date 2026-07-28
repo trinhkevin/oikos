@@ -1,0 +1,16 @@
+// views/qrpage.templ
+package views
+
+templ QRPage(title, qrSrc, primaryText, fallbackText string) {
+	@Layout(title, HeaderQR, qrPageBody(qrSrc, primaryText, fallbackText))
+}
+
+templ qrPageBody(qrSrc, primaryText, fallbackText string) {
+	<div class="qr-card">
+		<img src={ qrSrc } alt="QR code" width="320" height="320"/>
+		<p class="qr-primary-text">{ primaryText }</p>
+		if fallbackText != "" {
+			<p class="qr-fallback-text">{ fallbackText }</p>
+		}
+	</div>
+}

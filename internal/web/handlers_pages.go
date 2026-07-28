@@ -14,6 +14,10 @@ func (s *Server) registerPageRoutes() {
 	s.mux.HandleFunc("GET /refreshments", s.handleMenu(s.cfg.ContentDir+"/refreshments.yaml"))
 	s.mux.HandleFunc("GET /cats", s.handleCatsIndex)
 	s.mux.HandleFunc("GET /cats/{slug}", s.handleCatDetail)
+	s.mux.HandleFunc("GET /wifi", s.handleWiFiPage)
+	s.mux.HandleFunc("GET /wifi/qr.png", s.handleWiFiQRPng)
+	s.mux.HandleFunc("GET /share", s.handleSharePage)
+	s.mux.HandleFunc("GET /share/qr.png", s.handleShareQRPng)
 }
 
 func (s *Server) handleWelcome(w http.ResponseWriter, r *http.Request) {
