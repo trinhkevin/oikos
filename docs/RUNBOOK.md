@@ -15,11 +15,16 @@ section) — this is the boring, rehearsed path back to a working site.
    your password manager.
 4. Recreate `/srv/homesite/backup.env` the same way (restic repository
    password and B2 keys).
-5. From the Mac: `make deploy` (builds and `scp`s the binary, installs
-   the systemd unit isn't automated yet — see step 6).
+5. From the Mac: `make deploy` (builds and `scp`s the binary, and also
+   `scp -r`s the whole `deploy/` directory to `/srv/homesite/deploy` —
+   this is what puts `backup.sh` at the path
+   `homesite-backup.service`'s `ExecStart` expects; installing the
+   systemd units themselves isn't automated yet — see step 6).
 6. Copy `deploy/homesite.service`, `deploy/homesite-backup.service`, and
-   `deploy/homesite-backup.timer` into `/etc/systemd/system/` on the Pi,
-   then:
+   `deploy/homesite-backup.timer` into `/etc/systemd/system/` on the Pi
+   (they're already at `/srv/homesite/deploy/` after step 5, so this can
+   be done locally on the Pi via `sudo cp /srv/homesite/deploy/*.service
+   /srv/homesite/deploy/*.timer /etc/systemd/system/`), then:
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable --now homesite

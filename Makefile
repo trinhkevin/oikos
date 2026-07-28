@@ -13,6 +13,7 @@ build:
 
 deploy: build
 	scp homesite pi@192.168.1.50:/srv/homesite/homesite
+	scp -r deploy pi@192.168.1.50:/srv/homesite/deploy
 	ssh pi@192.168.1.50 'sudo systemctl restart homesite'
-	@echo "Binary deployed and service restarted."
+	@echo "Binary and deploy/ (including backup.sh, at the path homesite-backup.service expects) deployed; service restarted."
 	@echo "First-time setup only: see docs/RUNBOOK.md steps 2-6 for provisioning, config, and systemd units."
