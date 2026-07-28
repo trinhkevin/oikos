@@ -1,0 +1,11 @@
+/homesite
+/data/
+/uploads/
+config.yaml
+config.local.yaml
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+.claude/
+.superpowers/

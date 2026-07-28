@@ -1,0 +1,27 @@
+site:
+  title: "Brivin Household"
+  listen: ":80"
+  url: "http://home.arpa"
+  fallback_url: "http://192.168.1.50"
+wifi:
+  ssid: "YOUR_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+  auth: WPA
+  hidden: false
+spotify:
+  playlist_url: "https://open.spotify.com/playlist/YOUR_PLAYLIST_ID"
+  client_id: "YOUR_SPOTIFY_CLIENT_ID"
+  client_secret: "YOUR_SPOTIFY_CLIENT_SECRET"
+  cache_seconds: 60
+photos:
+  max_file_bytes: 26214400
+  max_total_bytes: 85899345920
+  warn_at_percent: 85
+  thumb_long_edge: 400
+limits:
+  guestbook_per_window: 2
+  photo_uploads_per_window: 30
+  window_minutes: 15
+content_dir: "/srv/homesite/content"
+data_dir: "/srv/homesite/data"
+uploads_dir: "/srv/homesite/uploads"
