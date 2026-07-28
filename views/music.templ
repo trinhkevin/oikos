@@ -1,0 +1,56 @@
+// views/music.templ
+package views
+
+import "homesite/internal/spotify"
+
+templ MusicPage(nowPlaying *spotify.Track, nowPlayingErr bool, recent []spotify.SongRequest) {
+	@Layout("Music Requests", HeaderStandard, musicBody(nowPlaying, nowPlayingErr, recent))
+}
+
+templ musicBody(nowPlaying *spotify.Track, nowPlayingErr bool, recent []spotify.SongRequest) {
+	<h1>Music Requests</h1>
+	<div class="now-playing">
+		if nowPlayingErr {
+			<p class="quiet-note">Can't reach Spotify right now.</p>
+		} else if nowPlaying == nil {
+			<p class="quiet-note">Nothing's playing yet.</p>
+		} else {
+			<p>Now playing: <strong>{ nowPlaying.Name }</strong> — { nowPlaying.Artists }</p>
+		}
+	</div>
+	<input type="search" name="q" placeholder="Search for a song"
+		hx-get="/music/search" hx-trigger="keyup changed delay:300ms" hx-target="#search-results"/>
+	<div id="search-results"></div>
+	<div id="music-request-rl-message"></div>
+	if len(recent) > 0 {
+		<h2>Recently added</h2>
+		<ul class="track-list">
+			for _, r := range recent {
+				<li>{ r.TrackName } — { r.ArtistName }</li>
+			}
+		</ul>
+	}
+}
+
+templ SearchResults(tracks []spotify.Track) {
+	if len(tracks) == 0 {
+		<p class="quiet-note">No matches — try the artist name.</p>
+	} else {
+		for _, t := range tracks {
+			<form hx-post="/music/request" hx-target="#search-results" hx-swap="innerHTML">
+				<input type="hidden" name="uri" value={ t.URI }/>
+				<input type="hidden" name="name" value={ t.Name }/>
+				<input type="hidden" name="artist" value={ t.Artists }/>
+				<button type="submit">{ t.Name } — { t.Artists }</button>
+			</form>
+		}
+	}
+}
+
+templ SearchResultsError(message string) {
+	<p class="quiet-note">{ message }</p>
+}
+
+templ RequestResult(success bool, message string) {
+	<p class={ templ.KV("request-success", success), templ.KV("request-failure", !success) }>{ message }</p>
+}

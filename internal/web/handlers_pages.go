@@ -22,6 +22,11 @@ func (s *Server) registerPageRoutes() {
 	s.mux.HandleFunc("POST /photos", s.rateLimit(s.photosLimiter, "photos-rl-message", s.handlePhotosUpload))
 	s.mux.HandleFunc("GET /guestbook", s.handleGuestbookPage)
 	s.mux.HandleFunc("POST /guestbook", s.rateLimit(s.guestbookLimiter, "guestbook-rl-message", s.handleGuestbookCreate))
+	s.mux.HandleFunc("GET /music", s.handleMusicPage)
+	s.mux.HandleFunc("GET /music/search", s.handleMusicSearch)
+	s.mux.HandleFunc("POST /music/request", s.rateLimit(s.songRequestLimiter, "music-request-rl-message", s.handleMusicRequest))
+	s.mux.HandleFunc("GET /spotify/login", s.handleSpotifyLogin)
+	s.mux.HandleFunc("GET /spotify/callback", s.handleSpotifyCallback)
 }
 
 func (s *Server) handleWelcome(w http.ResponseWriter, r *http.Request) {
