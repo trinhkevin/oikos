@@ -80,7 +80,16 @@ func testSpotifyServer(t *testing.T) (*httptest.Server, *[]string) {
 		})
 	})
 	mux.HandleFunc("/me/player/queue", func(w http.ResponseWriter, r *http.Request) {
-		calls = append(calls, "queue:"+r.URL.Query().Get("uri"))
+		if r.Method == http.MethodGet {
+			calls = append(calls, "queue-read")
+			json.NewEncoder(w).Encode(map[string]any{
+				"queue": []map[string]any{
+					{"name": "Song C", "uri": "spotify:track:ghi", "artists": []map[string]any{{"name": "Artist Three"}}},
+				},
+			})
+			return
+		}
+		calls = append(calls, "queue-add:"+r.URL.Query().Get("uri"))
 		w.WriteHeader(http.StatusNoContent)
 	})
 	return httptest.NewServer(mux), &calls
@@ -160,12 +169,73 @@ func TestQueueTrackSucceeds(t *testing.T) {
 	}
 	found := false
 	for _, call := range *calls {
-		if call == "queue:spotify:track:abc" {
+		if call == "queue-add:spotify:track:abc" {
 			found = true
 		}
 	}
 	if !found {
 		t.Error("expected a queue call with the requested URI")
+	}
+}
+
+func TestQueueReturnsUpcomingTracks(t *testing.T) {
+	ts, calls := testSpotifyServer(t)
+	defer ts.Close()
+	c, _ := newTestClient(t, ts)
+
+	tracks, err := c.Queue(context.Background())
+	if err != nil {
+		t.Fatalf("Queue: %v", err)
+	}
+	if len(tracks) != 1 || tracks[0].Name != "Song C" || tracks[0].URI != "spotify:track:ghi" {
+		t.Fatalf("tracks = %+v", tracks)
+	}
+
+	if _, err := c.Queue(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	reads := 0
+	for _, call := range *calls {
+		if call == "queue-read" {
+			reads++
+		}
+	}
+	if reads != 1 {
+		t.Errorf("queue endpoint called %d times, want 1 (second call should hit cache)", reads)
+	}
+}
+
+func TestNowPlayingIncludesAlbumArt(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"access_token": "t", "expires_in": 3600})
+	})
+	mux.HandleFunc("/me/player/currently-playing", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"item": map[string]any{
+				"name": "Song A", "uri": "spotify:track:abc",
+				"artists": []map[string]any{{"name": "Artist One"}},
+				"album": map[string]any{
+					"images": []map[string]any{
+						{"url": "https://example.com/640.jpg"},
+						{"url": "https://example.com/300.jpg"},
+						{"url": "https://example.com/64.jpg"},
+					},
+				},
+			},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	c, _ := newTestClient(t, ts)
+
+	track, err := c.NowPlaying(context.Background())
+	if err != nil {
+		t.Fatalf("NowPlaying: %v", err)
+	}
+	// pickAlbumArt prefers the mid-sized (second) image over the largest.
+	if track.AlbumArtURL != "https://example.com/300.jpg" {
+		t.Errorf("AlbumArtURL = %q, want the mid-sized image", track.AlbumArtURL)
 	}
 }
 

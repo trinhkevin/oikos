@@ -15,10 +15,12 @@ import (
 )
 
 var (
-	ErrNoActiveDevice = errors.New("no active playback device")
-	ErrTokenInvalid   = errors.New("spotify authorization is invalid or missing")
-	ErrRateLimited    = errors.New("spotify rate limited the request")
-	ErrUpstream       = errors.New("spotify request failed")
+	ErrNoActiveDevice   = errors.New("no active playback device")
+	ErrTokenInvalid     = errors.New("spotify authorization is invalid or missing")
+	ErrRateLimited      = errors.New("spotify rate limited the request")
+	ErrUpstream         = errors.New("spotify request failed")
+	ErrPremiumRequired  = errors.New("spotify premium is required for this action")
+	ErrPlaybackRejected = errors.New("spotify rejected the playback command")
 )
 
 // Scopes requested during the one-time host authorization. Read-currently-
@@ -27,9 +29,57 @@ var (
 const Scopes = "user-read-currently-playing user-read-playback-state user-modify-playback-state"
 
 type Track struct {
-	URI     string
-	Name    string
-	Artists string
+	URI         string
+	Name        string
+	Artists     string
+	AlbumArtURL string
+}
+
+// albumImage is Spotify's shape for one entry in an album's "images"
+// array — always ordered largest-first (typically 640/300/64px).
+type albumImage struct {
+	URL string `json:"url"`
+}
+
+// pickAlbumArt returns a mid-sized image URL when available, falling
+// back to whatever's present. Guests' phones don't need the 640px
+// original for a thumbnail, and always taking index 0 would mean
+// re-downloading the largest asset every poll.
+func pickAlbumArt(images []albumImage) string {
+	switch {
+	case len(images) >= 2:
+		return images[1].URL
+	case len(images) == 1:
+		return images[0].URL
+	default:
+		return ""
+	}
+}
+
+// trackItem is Spotify's track object shape, shared verbatim across
+// now-playing, search, and queue responses.
+type trackItem struct {
+	Name    string `json:"name"`
+	URI     string `json:"uri"`
+	Artists []struct {
+		Name string `json:"name"`
+	} `json:"artists"`
+	Album struct {
+		Images []albumImage `json:"images"`
+	} `json:"album"`
+}
+
+func (t trackItem) toTrack() Track {
+	names := make([]string, 0, len(t.Artists))
+	for _, a := range t.Artists {
+		names = append(names, a.Name)
+	}
+	return Track{
+		URI:         t.URI,
+		Name:        t.Name,
+		Artists:     strings.Join(names, ", "),
+		AlbumArtURL: pickAlbumArt(t.Album.Images),
+	}
 }
 
 // TokenStore persists the durable refresh token across restarts. The
@@ -62,6 +112,9 @@ type Client struct {
 	nowPlaying       *Track
 	nowPlayingCached bool // true once a fetch has populated nowPlaying, even when it's nil (nothing playing)
 	nowPlayingAt     time.Time
+	queue            []Track
+	queueCached      bool
+	queueAt          time.Time
 }
 
 func New(clientID, clientSecret, redirectURI string, tokens TokenStore, nowPlayingTTL time.Duration) *Client {
@@ -278,13 +331,7 @@ func (c *Client) NowPlaying(ctx context.Context) (*Track, error) {
 	}
 
 	var body struct {
-		Item struct {
-			Name    string `json:"name"`
-			URI     string `json:"uri"`
-			Artists []struct {
-				Name string `json:"name"`
-			} `json:"artists"`
-		} `json:"item"`
+		Item trackItem `json:"item"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("spotify: decoding now-playing: %w", err)
@@ -303,19 +350,80 @@ func (c *Client) NowPlaying(ctx context.Context) (*Track, error) {
 		return nil, nil
 	}
 
-	names := make([]string, 0, len(body.Item.Artists))
-	for _, a := range body.Item.Artists {
-		names = append(names, a.Name)
-	}
-	track := &Track{URI: body.Item.URI, Name: body.Item.Name, Artists: strings.Join(names, ", ")}
+	track := body.Item.toTrack()
 
 	c.mu.Lock()
-	c.nowPlaying = track
+	c.nowPlaying = &track
 	c.nowPlayingCached = true
 	c.nowPlayingAt = time.Now()
 	c.mu.Unlock()
 
-	return track, nil
+	return &track, nil
+}
+
+// Queue returns the tracks Spotify will play next, cached alongside
+// NowPlaying on the same short TTL — both are polled together by the
+// Music page, so a room full of guests loading it doesn't double the
+// hammering the now-playing cache already exists to prevent.
+func (c *Client) Queue(ctx context.Context) ([]Track, error) {
+	c.mu.Lock()
+	if c.queueCached && time.Now().Before(c.queueAt.Add(c.nowPlayingTTL)) {
+		q := c.queue
+		c.mu.Unlock()
+		return q, nil
+	}
+	c.mu.Unlock()
+
+	token, err := c.getAccessToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.apiBaseURL+"/me/player/queue", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("spotify: queue request: %w: %w", err, ErrUpstream)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNoContent {
+		c.mu.Lock()
+		c.queue = nil
+		c.queueCached = true
+		c.queueAt = time.Now()
+		c.mu.Unlock()
+		return nil, nil
+	}
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, ErrRateLimited
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("spotify: queue status %d: %w", resp.StatusCode, ErrUpstream)
+	}
+
+	var body struct {
+		Queue []trackItem `json:"queue"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, fmt.Errorf("spotify: decoding queue: %w", err)
+	}
+
+	tracks := make([]Track, 0, len(body.Queue))
+	for _, item := range body.Queue {
+		tracks = append(tracks, item.toTrack())
+	}
+
+	c.mu.Lock()
+	c.queue = tracks
+	c.queueCached = true
+	c.queueAt = time.Now()
+	c.mu.Unlock()
+
+	return tracks, nil
 }
 
 // Search returns up to 8 matching tracks for a guest's query.
@@ -346,13 +454,7 @@ func (c *Client) Search(ctx context.Context, query string) ([]Track, error) {
 
 	var body struct {
 		Tracks struct {
-			Items []struct {
-				URI     string `json:"uri"`
-				Name    string `json:"name"`
-				Artists []struct {
-					Name string `json:"name"`
-				} `json:"artists"`
-			} `json:"items"`
+			Items []trackItem `json:"items"`
 		} `json:"tracks"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
@@ -361,11 +463,7 @@ func (c *Client) Search(ctx context.Context, query string) ([]Track, error) {
 
 	tracks := make([]Track, 0, len(body.Tracks.Items))
 	for _, item := range body.Tracks.Items {
-		names := make([]string, 0, len(item.Artists))
-		for _, a := range item.Artists {
-			names = append(names, a.Name)
-		}
-		tracks = append(tracks, Track{URI: item.URI, Name: item.Name, Artists: strings.Join(names, ", ")})
+		tracks = append(tracks, item.toTrack())
 	}
 	return tracks, nil
 }
@@ -393,12 +491,33 @@ func (c *Client) QueueTrack(ctx context.Context, uri string) error {
 
 	switch resp.StatusCode {
 	case http.StatusNoContent, http.StatusOK:
+		// Invalidate the cached queue so the next Queue() call re-fetches
+		// from Spotify instead of serving a snapshot from before this
+		// track was added — the Music page immediately re-displays the
+		// queue after a successful add, and it must show the new track.
+		c.mu.Lock()
+		c.queueCached = false
+		c.mu.Unlock()
 		return nil
 	case http.StatusNotFound:
 		return ErrNoActiveDevice
 	case http.StatusTooManyRequests:
 		return ErrRateLimited
+	case http.StatusForbidden:
+		// Spotify returns 403 for several distinct playback-command
+		// rejections (most commonly the host's account not having
+		// Premium, which is required for every playback-modification
+		// endpoint including queue-add) — the body's "reason" field is
+		// the only way to tell them apart, and logging it here is what
+		// was missing when this first got reported as an opaque
+		// "failed" with nothing actionable in the logs.
+		body, _ := io.ReadAll(resp.Body)
+		if strings.Contains(string(body), "PREMIUM_REQUIRED") {
+			return fmt.Errorf("spotify: queue rejected: %s: %w", body, ErrPremiumRequired)
+		}
+		return fmt.Errorf("spotify: queue rejected: %s: %w", body, ErrPlaybackRejected)
 	default:
-		return fmt.Errorf("spotify: queue status %d: %w", resp.StatusCode, ErrUpstream)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("spotify: queue status %d: %s: %w", resp.StatusCode, body, ErrUpstream)
 	}
 }

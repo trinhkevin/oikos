@@ -48,7 +48,7 @@ func PhotosPage(gallery []photos.Photo, page int, hasPrev, hasMore, showDiskWarn
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("Upload Photos", HeaderStandard, photosPageBody(gallery, page, hasPrev, hasMore, showDiskWarning)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Upload Photos", photosPageBody(gallery, page, hasPrev, hasMore, showDiskWarning)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -87,7 +87,7 @@ func photosPageBody(gallery []photos.Photo, page int, hasPrev, hasMore, showDisk
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<form hx-post=\"/photos\" hx-encoding=\"multipart/form-data\" hx-target=\"#photos-content\" hx-swap=\"innerHTML\" onsubmit=\"document.getElementById('upload-progress').value=0\"><input type=\"file\" name=\"photos\" accept=\"image/jpeg,image/png,image/webp,image/heic\" multiple required> <progress id=\"upload-progress\" value=\"0\" max=\"100\"></progress> <button type=\"submit\">Upload</button></form><div id=\"photos-rl-message\"></div><div id=\"photos-content\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<form hx-post=\"/photos\" hx-encoding=\"multipart/form-data\" hx-target=\"#photos-content\" hx-swap=\"innerHTML\" hx-indicator=\"#photos-spinner\" hx-trigger=\"change\" class=\"photo-upload-form\"><label for=\"photos-input\" class=\"photo-upload-trigger\" aria-label=\"Add photos\"><span aria-hidden=\"true\">+</span></label> <input type=\"file\" id=\"photos-input\" name=\"photos\" accept=\"image/jpeg,image/png,image/webp,image/heic\" multiple required class=\"visually-hidden\"> <span class=\"photo-upload-caption\">Add photos</span> <span id=\"photos-spinner\" class=\"spinner htmx-indicator\" aria-hidden=\"true\"></span></form><div id=\"photos-rl-message\"></div><hr class=\"rule\"><div id=\"photos-content\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -95,7 +95,7 @@ func photosPageBody(gallery []photos.Photo, page int, hasPrev, hasMore, showDisk
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div><script>\n\t\tdocument.body.addEventListener('htmx:xhrProgress', function(evt) {\n\t\t\tvar bar = document.getElementById('upload-progress');\n\t\t\tif (bar && evt.detail.lengthComputable) {\n\t\t\t\tbar.value = (evt.detail.loaded / evt.detail.total) * 100;\n\t\t\t}\n\t\t});\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -132,7 +132,7 @@ func PhotosContent(result *UploadResult, gallery []photos.Photo, page int, hasPr
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d of %d uploaded", result.Succeeded, result.Total))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 52, Col: 93}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 49, Col: 93}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -155,7 +155,7 @@ func PhotosContent(result *UploadResult, gallery []photos.Photo, page int, hasPr
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(f.Filename)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 56, Col: 21}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 53, Col: 21}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
@@ -168,7 +168,7 @@ func PhotosContent(result *UploadResult, gallery []photos.Photo, page int, hasPr
 					var templ_7745c5c3_Var6 string
 					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(f.Message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 56, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 53, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
@@ -190,80 +190,54 @@ func PhotosContent(result *UploadResult, gallery []photos.Photo, page int, hasPr
 			return templ_7745c5c3_Err
 		}
 		for _, p := range gallery {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<a href=\"")
+			templ_7745c5c3_Err = PhotoLightbox(fmt.Sprintf("lightbox-photo-%d", p.ID), "/uploads/"+p.ThumbPath, "/uploads/"+p.Path, "Guest photo", "photo-thumb", "").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div><nav class=\"pagination\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if hasPrev {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var7 templ.SafeURL
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/uploads/" + p.Path))
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/photos?page=%d", page-1)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 63, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 65, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" class=\"photo-thumb\"><img src=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs("/uploads/" + p.ThumbPath)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 64, Col: 40}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" alt=\"Guest photo\" loading=\"lazy\"></a>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div><nav class=\"pagination\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if hasPrev {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<a href=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var9 templ.SafeURL
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/photos?page=%d", page-1)))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 70, Col: 62}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\">&larr; Newer</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\">&larr; Newer</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if hasMore {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var10 templ.SafeURL
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/photos?page=%d", page+1)))
+			var templ_7745c5c3_Var8 templ.SafeURL
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(fmt.Sprintf("/photos?page=%d", page+1)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 73, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/photos.templ`, Line: 68, Col: 62}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\">Older &rarr;</a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\">Older &rarr;</a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</nav>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</nav>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

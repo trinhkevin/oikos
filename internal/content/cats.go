@@ -17,9 +17,10 @@ type Cat struct {
 	Name     string   `yaml:"name"`
 	Slug     string   `yaml:"slug"`
 	Photo    string   `yaml:"photo"`
-	Adopted  string   `yaml:"adopted"`
+	Birthday string   `yaml:"birthday"`
 	Likes    []string `yaml:"likes"`
 	Dislikes []string `yaml:"dislikes"`
+	PetSpots []string `yaml:"pet_spots"`
 	BioHTML  string   `yaml:"-"`
 }
 

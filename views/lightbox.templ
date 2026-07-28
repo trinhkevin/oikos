@@ -1,0 +1,18 @@
+// views/lightbox.templ
+package views
+
+// PhotoLightbox renders a thumbnail that opens a full-size overlay on
+// tap, via the same checkbox-toggle CSS pattern as the nav menu
+// overlay -- no JS. The overlay's image is a real <img>, so a
+// long-press still triggers the phone's native "save image" affordance.
+templ PhotoLightbox(id, thumbSrc, fullSrc, alt, thumbClass, thumbImgClass string) {
+	<input type="checkbox" id={ id } class="lightbox-toggle"/>
+	<label for={ id } class={ thumbClass }>
+		<img src={ thumbSrc } alt={ alt } loading="lazy" class={ thumbImgClass }/>
+	</label>
+	<div class="lightbox-overlay">
+		<label for={ id } class="lightbox-backdrop" aria-label="Close"></label>
+		<img src={ fullSrc } alt={ alt } class="lightbox-image"/>
+		<label for={ id } class="lightbox-close" aria-label="Close">✕</label>
+	</div>
+}

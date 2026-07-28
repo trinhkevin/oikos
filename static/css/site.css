@@ -23,69 +23,63 @@
 	font-display: swap;
 }
 
-/* ---- Display face: Fraunces (headlines only, 24px and up) ---- */
+/* ---- Display face: Cormorant Garamond (headlines only, 24px and up) ---- */
 @font-face {
-	font-family: "Fraunces";
-	src: url("/static/fonts/Fraunces-Black.woff2") format("woff2");
-	font-weight: 900;
+	font-family: "Cormorant Garamond";
+	src: url("/static/fonts/CormorantGaramond-SemiBold.woff2") format("woff2");
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* ---- Structural face: Space Grotesk (nav, labels, buttons, tags) ----
+   A geometric grotesk gives the site's UI scaffolding -- the parts
+   that behave like signage rather than prose -- a distinct, midcentury
+   instrument-panel texture, set apart from the Cormorant Garamond/Lora
+   editorial pairing used for headlines and body copy. */
+@font-face {
+	font-family: "Space Grotesk";
+	src: url("/static/fonts/SpaceGrotesk-Regular.woff2") format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Space Grotesk";
+	src: url("/static/fonts/SpaceGrotesk-Medium.woff2") format("woff2");
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Space Grotesk";
+	src: url("/static/fonts/SpaceGrotesk-Bold.woff2") format("woff2");
+	font-weight: 700;
 	font-style: normal;
 	font-display: swap;
 }
 
 /* ---- Design tokens ----
-   A restrained palette: warm parchment ground, near-black ink, one
-   saturated accent (rust/terracotta). --accent-soft is a low-opacity
-   tint of the accent, not a second saturated color, used for tag
-   chips and hover fills. --line/--muted are opacity-derived from ink
-   so they stay legible in both themes without a third hue. */
+   Brand palette, sampled directly from the Brivin brand mark: a warm
+   paper ground, near-black ink, and one saturated accent -- a deep
+   midcentury bottle green. --accent-soft is a low-opacity tint of the
+   accent, not a second saturated color, used for tag chips and hover
+   fills. --line/--muted are opacity-derived from ink so they stay
+   legible without a third hue. Light-only by design: no dark-mode
+   variant exists. */
 :root {
-	--ink: #241f1b;
-	--ground: #f5efe2;
-	--accent: #ad4425;
-	--accent-soft: rgba(173, 68, 37, 0.12);
-	--card-bg: #fffaf2;
-	--line: rgba(36, 31, 27, 0.14);
-	--muted: rgba(36, 31, 27, 0.64);
+	color-scheme: light only;
+	--ink: #151515;
+	--ground: #fbf8f6;
+	--accent: #06402b;
+	--accent-soft: rgba(6, 64, 43, 0.10);
+	--card-bg: #ffffff;
+	--line: rgba(21, 21, 21, 0.12);
+	--muted: rgba(21, 21, 21, 0.60);
 	--measure: 60ch;
 	--radius-sm: 6px;
 	--radius-md: 14px;
 	--radius-lg: 22px;
-}
-
-@media (prefers-color-scheme: dark) {
-	:root {
-		--ink: #f1e8d8;
-		--ground: #17120f;
-		--accent: #e2895a;
-		--accent-soft: rgba(226, 137, 90, 0.16);
-		--card-bg: #241d18;
-		--line: rgba(241, 232, 216, 0.16);
-		--muted: rgba(241, 232, 216, 0.68);
-	}
-}
-
-/* The two QR pages (Wi-Fi, Share) lock to light mode: an inverted QR
-   fails to scan on many camera apps. `color-scheme: light` only
-   affects UA form-control/scrollbar styling -- it does NOT stop the
-   `prefers-color-scheme: dark` media query above from matching, so
-   every custom property that query redefines on :root must be pinned
-   back to its light value here too. Every token the dark-mode block
-   touches is repeated here, not just --ink/--ground, so that nothing
-   added later (a tinted chip, an accent button, a card surface) can
-   quietly leak a dark value onto a page that must stay scannable. */
-html.qr-page {
-	color-scheme: light only;
-	--ink: #241f1b;
-	--ground: #f5efe2;
-	--accent: #ad4425;
-	--accent-soft: rgba(173, 68, 37, 0.12);
-	--card-bg: #fffaf2;
-	--line: rgba(36, 31, 27, 0.14);
-	--muted: rgba(36, 31, 27, 0.64);
-}
-html.qr-page body {
-	background: #ffffff;
-	color: #111111;
 }
 
 * { box-sizing: border-box; }
@@ -119,19 +113,19 @@ a { color: inherit; }
 	}
 }
 
-/* ---- Headline type: Fraunces, large jumps, tight negative tracking.
-   Never used below ~24px -- its hairlines wash out at body-copy
+/* ---- Headline type: Cormorant Garamond, a delicate high-contrast
+   serif. Never used below ~24px -- its hairlines wash out at body-copy
    sizes, so it stays reserved for h1/h2 and the nav-card labels. ---- */
 h1, h2 {
-	font-family: "Fraunces", Georgia, serif;
-	font-weight: 900;
-	letter-spacing: -0.03em;
-	line-height: 0.98;
+	font-family: "Cormorant Garamond", Georgia, serif;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.05;
 	margin: 0 0 0.5rem;
 	color: var(--ink);
 }
-h1 { font-size: clamp(2.1rem, 6vw + 1rem, 3rem); }
-h2 { font-size: clamp(1.4rem, 3vw + 1rem, 1.8rem); margin-top: 2rem; }
+h1 { font-size: clamp(2.4rem, 7vw + 1rem, 3.4rem); }
+h2 { font-size: clamp(1.6rem, 3.5vw + 1rem, 2rem); margin-top: 2rem; }
 h3 {
 	font-family: "Lora", Georgia, serif;
 	font-weight: 700;
@@ -142,8 +136,8 @@ h3 {
 
 .eyebrow {
 	display: block;
-	font-family: "Lora", Georgia, serif;
-	font-weight: 700;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-weight: 500;
 	font-size: 0.72rem;
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
@@ -153,31 +147,32 @@ h3 {
 
 p { margin: 0 0 1rem; }
 
-/* ---- Header / wordmark ----
-   The running mark stays in the body face at nav scale (below the
-   24px display threshold), set in small caps with open tracking, so
-   Fraunces reads as a deliberate, occasional flourish rather than
-   wallpaper. */
+/* ---- Header ----
+   Three tracks: the menu toggle pinned left, the favicon mark
+   centered in the bar, and an empty mirror track on the right so the
+   center mark is optically centered rather than centered-minus-toggle. */
 .site-header {
 	position: sticky;
 	top: 0;
-	display: flex;
+	display: grid;
+	grid-template-columns: 44px 1fr 44px;
 	align-items: center;
-	justify-content: space-between;
 	padding: 0.85rem 1rem;
-	background: var(--ground);
-	border-bottom: 1px solid var(--line);
+	background: var(--accent);
 	z-index: 10;
 }
 
-.site-title {
-	font-family: "Lora", Georgia, serif;
-	font-weight: 700;
-	font-size: 0.95rem;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: var(--ink);
+.site-brand {
+	grid-column: 2;
+	justify-self: center;
+	display: flex;
+	align-items: center;
 	text-decoration: none;
+}
+.site-brand img {
+	display: block;
+	height: 34px;
+	width: auto;
 }
 
 main {
@@ -186,9 +181,20 @@ main {
 	padding: 1.75rem 1.25rem 4.5rem;
 }
 
-/* ---- Welcome hero ---- */
-.hero { margin-bottom: 2rem; }
-.hero-title { margin-bottom: 1rem; }
+/* ---- Welcome hero ----
+   A title card: the full wordmark, then the eyebrow line underneath,
+   centered as one lockup. No headline text duplicates the wordmark. */
+.hero {
+	text-align: center;
+	margin: 1.5rem 0 2.5rem;
+}
+.hero-wordmark {
+	display: block;
+	height: 72px;
+	width: auto;
+	margin: 0 auto 1.1rem;
+}
+.hero .eyebrow { margin-bottom: 0; }
 
 .prose {
 	max-width: var(--measure);
@@ -207,15 +213,12 @@ hr.rule {
 	margin: 2rem 0;
 }
 
-/* ---- Nav cards: styled like a stack of drink tickets -- a torn-stub
-   accent edge, a tight display title, a quiet blurb underneath. This
-   is the site's one recurring signature device, echoing the
-   party-favor / coat-check-stub artifacts of the subject itself. ---- */
+/* ---- Nav cards: a tight display title over a quiet blurb. ---- */
 .card-grid {
 	display: grid;
 	grid-template-columns: 1fr;
-	gap: 0.85rem;
-	margin-top: 1.5rem;
+	gap: 1.15rem;
+	margin-top: 1.75rem;
 }
 @media (min-width: 480px) {
 	.card-grid { grid-template-columns: 1fr 1fr; }
@@ -226,12 +229,11 @@ hr.rule {
 	display: flex;
 	flex-direction: column;
 	gap: 0.3rem;
-	padding: 1.15rem 1.25rem 1.35rem 1.35rem;
+	padding: 1.15rem 1.25rem 1.35rem 1.25rem;
 	min-height: 44px;
 	border-radius: var(--radius-md);
 	background: var(--card-bg);
 	border: 1px solid var(--line);
-	border-left: 3px solid var(--accent);
 	text-decoration: none;
 	color: var(--ink);
 	transition: transform 0.15s ease, border-color 0.15s ease;
@@ -239,16 +241,15 @@ hr.rule {
 .nav-card:active { transform: scale(0.98); }
 
 .nav-card-title {
-	font-family: "Fraunces", Georgia, serif;
-	font-weight: 900;
-	font-size: 1.5rem;
-	letter-spacing: -0.02em;
-	line-height: 1.02;
+	font-family: "Cormorant Garamond", Georgia, serif;
+	font-weight: 600;
+	font-size: 1.7rem;
+	letter-spacing: -0.01em;
+	line-height: 1.05;
 }
 .nav-card-blurb {
-	font-family: "Lora", Georgia, serif;
-	font-style: italic;
-	font-size: 0.88rem;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.82rem;
 	color: var(--muted);
 }
 
@@ -263,7 +264,7 @@ hr.rule {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--ink);
+	color: var(--ground);
 }
 .menu-overlay {
 	position: fixed;
@@ -281,8 +282,18 @@ hr.rule {
 .menu-toggle-input:checked ~ .menu-overlay {
 	transform: translateY(0);
 }
+.menu-overlay-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+}
+.menu-overlay-brand {
+	display: block;
+	height: 26px;
+	width: auto;
+}
 .menu-overlay-close {
-	align-self: flex-end;
 	font-size: 1.4rem;
 	cursor: pointer;
 	min-width: 44px;
@@ -302,9 +313,9 @@ hr.rule {
 .menu-overlay-list a {
 	color: var(--ink);
 	text-decoration: none;
-	font-family: "Fraunces", Georgia, serif;
-	font-weight: 900;
-	letter-spacing: -0.02em;
+	font-family: "Cormorant Garamond", Georgia, serif;
+	font-weight: 600;
+	letter-spacing: -0.01em;
 	display: block;
 	padding: 0.35rem 0;
 	border-bottom: 1px solid var(--line);
@@ -344,8 +355,9 @@ hr.rule {
 	list-style: none;
 }
 .menu-item-tag {
+	font-family: "Space Grotesk", Georgia, sans-serif;
 	font-size: 0.68rem;
-	font-weight: 700;
+	font-weight: 500;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
 	color: var(--accent);
@@ -354,53 +366,136 @@ hr.rule {
 	padding: 0.25rem 0.55rem;
 }
 
-/* ---- Cats ---- */
+/* ---- Cats ----
+   Editorial photo treatment, not the nav-card component: no border, no
+   card surface. A single tracked-uppercase caption line functions as
+   a film-still credit, and every photo shares one grade (a slightly
+   warm, slightly desaturated filter) plus a faint grain overlay so
+   the gallery reads as one shot roll rather than loose phone photos. */
+.photo-frame {
+	position: relative;
+	overflow: hidden;
+}
+.photo-frame::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+	opacity: 0.05;
+	mix-blend-mode: overlay;
+	pointer-events: none;
+}
+
+.cat-gallery {
+	display: flex;
+	flex-direction: column;
+	gap: 2.5rem;
+	margin-top: 1.75rem;
+}
+.cat-entry {
+	display: block;
+	text-decoration: none;
+	color: var(--ink);
+}
+.cat-entry .photo-frame {
+	aspect-ratio: 4 / 5;
+	border-radius: var(--radius-sm);
+}
 .cat-thumb {
 	display: block;
 	width: 100%;
-	aspect-ratio: 1 / 1;
+	height: 100%;
 	object-fit: cover;
-	border-radius: var(--radius-md);
-	margin-bottom: 0.15rem;
+	filter: saturate(0.88) contrast(1.06) brightness(1.01) sepia(0.06);
 }
+.cat-caption {
+	display: block;
+	margin-top: 0.85rem;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-weight: 600;
+	font-size: 1.15rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
 .cat-photo {
 	display: block;
 	width: 100%;
 	max-height: 60vh;
 	object-fit: cover;
-	border-radius: var(--radius-lg);
 	margin: 0 0 1.5rem;
+	filter: saturate(0.88) contrast(1.06) brightness(1.01) sepia(0.06);
+}
+.cat-meta {
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-weight: 500;
+	font-size: 0.72rem;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+	margin: 0 0 0.5rem;
+}
+.cat-meta strong {
+	color: var(--ink);
 }
 /* Full-bleed treatment on wider screens: the photo runs edge to edge
    while text above and below keeps the narrow reading measure -- the
    "full-bleed imagery against tight text blocks" contrast the brief
    calls for. */
 @media (min-width: 640px) {
-	.cat-photo {
+	.cat-detail-frame {
 		width: 100vw;
 		max-width: 100vw;
 		margin-left: calc(50% - 50vw);
-		border-radius: 0;
 		max-height: 70vh;
 	}
+	.cat-detail-frame .cat-photo { max-height: 70vh; }
 }
 
-/* ---- Guest book ---- */
-.guestbook-entry {
-	padding: 1rem 0;
-	border-bottom: 1px solid var(--line);
+/* ---- Guest book ----
+   A grid of one or two entries per row, each its own small journal
+   spread (photo leading, then name, then message) rather than a
+   stacked form-submission log. */
+.guestbook-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 2rem;
 }
-.guestbook-entry:first-child { padding-top: 0; }
+@media (min-width: 480px) {
+	.guestbook-grid { grid-template-columns: 1fr 1fr; }
+}
+.guestbook-entry {
+	min-width: 0;
+}
+.guestbook-photo-frame {
+	display: block;
+	aspect-ratio: 4 / 3;
+	border-radius: var(--radius-sm);
+	margin-bottom: 0.85rem;
+}
+.guestbook-photo {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	filter: saturate(0.88) contrast(1.06) brightness(1.01) sepia(0.06);
+}
 .guestbook-name {
-	font-weight: 700;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-weight: 500;
 	font-size: 0.78rem;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
 	color: var(--accent);
-	margin-bottom: 0.25rem;
+	margin-bottom: 0.4rem;
 }
 .guestbook-message {
 	margin: 0;
+	font-family: "Lora", Georgia, serif;
+	font-style: italic;
+	font-size: 1.05rem;
+	line-height: 1.5;
+	color: var(--ink);
 }
 .form-error {
 	color: var(--accent);
@@ -408,12 +503,44 @@ hr.rule {
 	font-style: italic;
 }
 
+/* ---- Upload spinner ----
+   Standard HTMX indicator convention: .htmx-indicator starts invisible
+   and HTMX itself toggles .htmx-request on it for the duration of an
+   in-flight request. Respects prefers-reduced-motion via the site-wide
+   animation-duration override already in place. */
+.upload-controls {
+	display: flex;
+	align-items: center;
+	gap: 0.85rem;
+}
+.htmx-indicator {
+	opacity: 0;
+	transition: opacity 150ms ease;
+}
+.htmx-indicator.htmx-request,
+.htmx-request.htmx-indicator {
+	opacity: 1;
+}
+.spinner {
+	display: inline-block;
+	width: 22px;
+	height: 22px;
+	border: 2px solid var(--line);
+	border-top-color: var(--accent);
+	border-radius: 50%;
+	animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+	to { transform: rotate(360deg); }
+}
+
 /* ---- Forms (guest book, photo upload, music search) ---- */
 form { margin: 1.5rem 0; }
 label {
 	display: block;
+	font-family: "Space Grotesk", Georgia, sans-serif;
 	font-size: 0.8rem;
-	font-weight: 700;
+	font-weight: 500;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 	color: var(--muted);
@@ -442,25 +569,50 @@ input[type="file"] {
 	display: block;
 	width: 100%;
 	margin-bottom: 1rem;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.85rem;
 	color: var(--muted);
 }
-button, input[type="submit"] {
+input[type="file"]::file-selector-button {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	min-height: 44px;
-	padding: 0.65rem 1.4rem;
-	font-family: "Lora", Georgia, serif;
-	font-weight: 700;
-	font-size: 0.95rem;
-	color: #fffaf2;
+	margin-right: 0.85rem;
+	padding: 0.55rem 1.1rem;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-weight: 500;
+	font-size: 0.82rem;
+	letter-spacing: 0.02em;
+	color: var(--ground);
 	background: var(--accent);
 	border: none;
 	border-radius: var(--radius-sm);
 	cursor: pointer;
 	transition: opacity 0.15s ease;
 }
-button:active, input[type="submit"]:active { opacity: 0.85; }
+input[type="file"]::file-selector-button:hover,
+input[type="file"]::file-selector-button:active {
+	opacity: 0.85;
+}
+button, input[type="submit"], .link-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 44px;
+	padding: 0.65rem 1.4rem;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-weight: 500;
+	font-size: 0.95rem;
+	color: var(--ground);
+	background: var(--accent);
+	border: none;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	text-decoration: none;
+	transition: opacity 0.15s ease;
+}
+button:active, input[type="submit"]:active, .link-button:active { opacity: 0.85; }
 
 progress {
 	display: block;
@@ -483,32 +635,313 @@ progress {
 	border-radius: var(--radius-md);
 	margin-bottom: 1.25rem;
 }
-.track-list {
-	list-style: none;
+.now-playing-track {
+	display: flex;
+	align-items: center;
+	gap: 0.9rem;
+}
+.album-art {
+	width: 64px;
+	height: 64px;
+	border-radius: var(--radius-sm);
+	object-fit: cover;
+	flex-shrink: 0;
+}
+.now-playing-info {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	min-width: 0;
+}
+.now-playing-text {
 	margin: 0;
-	padding: 0;
+	min-width: 0;
 }
-.track-list li {
-	padding: 0.65rem 0;
-	border-bottom: 1px solid var(--line);
+.now-playing-name {
+	margin: 0;
+	font-size: 1.15rem;
+	font-weight: 700;
+	line-height: 1.3;
 }
-.track-list li:last-child { border-bottom: none; }
-.request-success { color: var(--accent); font-weight: 700; }
-.request-failure { color: var(--muted); font-style: italic; }
+.now-playing-artist {
+	margin: 0;
+	font-size: 0.85rem;
+	color: var(--muted);
+}
+.now-playing .cat-meta { margin-bottom: 0.65rem; }
+/* Equalizer bars: the universal "something is actively playing" signal.
+   Respects the site-wide prefers-reduced-motion override already in
+   place (it forces every animation-duration to ~0). */
+.eq-bars {
+	display: inline-flex;
+	align-items: flex-end;
+	gap: 2px;
+	height: 14px;
+	flex-shrink: 0;
+}
+.eq-bars span {
+	width: 3px;
+	background: var(--accent);
+	border-radius: 1px;
+	animation: eq-bounce 0.9s ease-in-out infinite;
+}
+.eq-bars span:nth-child(1) { animation-delay: 0s; }
+.eq-bars span:nth-child(2) { animation-delay: 0.2s; }
+.eq-bars span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes eq-bounce {
+	0%, 100% { height: 4px; }
+	50% { height: 14px; }
+}
 
-#search-results form {
-	margin: 0 0 0.5rem;
-}
-#search-results button {
-	width: 100%;
-	justify-content: flex-start;
-	text-align: left;
-	background: var(--card-bg);
-	color: var(--ink);
+/* ---- Queue panel ----
+   One shared surface for two states: the upcoming queue by default, or
+   search results while a guest is actively searching -- typing swaps
+   this panel's content rather than opening a second list below it. It
+   expands to use most of the viewport rather than the page growing
+   under it, and scrolls internally once content exceeds that. */
+#queue-panel {
 	border: 1px solid var(--line);
+	border-radius: var(--radius-md);
+	background: var(--card-bg);
+	min-height: 45vh;
+	max-height: 58vh;
+	overflow-y: auto;
+	margin-bottom: 2.5rem;
+}
+.queue-panel-label {
+	margin: 0;
+	padding: 0.65rem 0.75rem;
+	border-bottom: 1px solid var(--line);
+	position: sticky;
+	top: 0;
+	background: var(--card-bg);
+	z-index: 1;
+}
+.queue-empty-note {
+	padding: 1.75rem 0.75rem;
+	text-align: center;
+}
+.queue-item {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.55rem 0.75rem;
+}
+.queue-item + .queue-item { border-top: 1px solid var(--line); }
+
+.queue-panel-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.6rem 0.75rem;
+	border-bottom: 1px solid var(--line);
+	position: sticky;
+	top: 0;
+	background: var(--card-bg);
+	z-index: 1;
+}
+.queue-panel-header .cat-meta { margin: 0; }
+.queue-panel-close {
+	width: 32px;
+	height: 32px;
+	min-height: 0;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: transparent;
+	border: 1px solid var(--line);
+	color: var(--ink);
+	font-size: 0.9rem;
+	flex-shrink: 0;
+}
+.queue-panel-close:active { background: var(--accent-soft); }
+
+/* ---- Request toast ----
+   A brief, self-dismissing confirmation instead of a message that
+   permanently replaces the search results (which used to sit there
+   until the guest typed a new query). Pure CSS: the keyframes carry
+   both the fade and the disappearance, no JS timer involved. */
+.toast {
+	position: fixed;
+	left: 50%;
+	bottom: 1.5rem;
+	transform: translateX(-50%);
+	max-width: calc(100vw - 2.5rem);
+	padding: 0.75rem 1.25rem;
+	border-radius: 999px;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.85rem;
+	font-weight: 500;
+	color: var(--ground);
+	text-align: center;
+	z-index: 40;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+	pointer-events: none;
+	animation: toast-lifecycle 2.6s ease forwards;
+}
+.request-success { background: var(--accent); }
+.request-failure { background: var(--ink); }
+@keyframes toast-lifecycle {
+	0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+	10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+	80% { opacity: 1; }
+	100% { opacity: 0; visibility: hidden; }
+}
+/* The site-wide reduced-motion override collapses animation-duration to
+   ~0, which would make this whole lifecycle (including the visible
+   plateau) flash by in an instant -- worse than the old persistent
+   message. Show it plainly and statically instead. */
+@media (prefers-reduced-motion: reduce) {
+	.toast { animation: none; opacity: 1; }
+}
+
+/* ---- Music search bar ----
+   A pill-shaped search field with a drawn (not emoji) magnifying-glass
+   icon -- the Spotify-style search-chrome cue, in the site's own
+   restrained geometric vocabulary. */
+.music-search-wrapper {
+	position: relative;
+	margin: 1.25rem 0 0.75rem;
+}
+.music-search-wrapper::before {
+	content: "";
+	position: absolute;
+	left: 1.1rem;
+	top: 50%;
+	width: 13px;
+	height: 13px;
+	border: 2px solid var(--muted);
+	border-radius: 50%;
+	transform: translateY(-65%);
+	pointer-events: none;
+}
+.music-search-wrapper::after {
+	content: "";
+	position: absolute;
+	left: 1.75rem;
+	top: 50%;
+	width: 6px;
+	height: 2px;
+	background: var(--muted);
+	transform: translateY(35%) rotate(45deg);
+	transform-origin: left center;
+	pointer-events: none;
+}
+input[type="search"].music-search-input {
+	margin-top: 0;
+	padding-left: 2.6rem;
+	border-radius: 999px;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.95rem;
+}
+
+/* ---- Search results (song request rows) ----
+   Flush, borderless rows -- the Spotify list convention -- rendered
+   inside #queue-panel (see above) once a search is active. */
+.track-result-form { margin: 0; }
+.track-result-form + .track-result-form { border-top: 1px solid var(--line); }
+.track-result {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.55rem 0.75rem;
+	background: transparent;
+	border: none;
+	border-radius: 0;
+	text-align: left;
 	font-weight: 400;
 }
-#search-results button:active { background: var(--accent-soft); }
+.track-result:active { background: var(--accent-soft); }
+.track-result-art {
+	width: 44px;
+	height: 44px;
+	border-radius: var(--radius-sm);
+	object-fit: cover;
+	flex-shrink: 0;
+	background: var(--line);
+}
+.track-result-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	flex: 1;
+	gap: 0.1rem;
+}
+.track-result-name {
+	font-weight: 700;
+	color: var(--ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.track-result-artist {
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.8rem;
+	color: var(--muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.track-result-queue-icon {
+	flex-shrink: 0;
+	width: 26px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: var(--accent);
+	color: var(--ground);
+	font-size: 1.05rem;
+	font-weight: 700;
+	line-height: 1;
+}
+
+/* ---- Photo lightbox ----
+   Same checkbox-toggle pattern as the nav menu overlay -- no JS. The
+   overlay image is a real <img>, so long-press-to-save still works. */
+.lightbox-toggle { display: none; }
+.lightbox-overlay {
+	position: fixed;
+	inset: 0;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	z-index: 30;
+	background: rgba(10, 10, 10, 0.92);
+	padding: 1.5rem;
+}
+.lightbox-toggle:checked ~ .lightbox-overlay {
+	display: flex;
+}
+.lightbox-backdrop {
+	position: absolute;
+	inset: 0;
+	cursor: pointer;
+}
+.lightbox-image {
+	position: relative;
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+	border-radius: var(--radius-sm);
+}
+.lightbox-close {
+	position: absolute;
+	top: 1rem;
+	right: 1rem;
+	width: 44px;
+	height: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	font-size: 1.4rem;
+	cursor: pointer;
+}
 
 /* ---- Photos ---- */
 .disk-warning {
@@ -518,7 +951,91 @@ progress {
 	border-radius: var(--radius-sm);
 	font-size: 0.9rem;
 }
-.upload-result { font-weight: 700; }
+
+/* A single big "+" replaces the file input's own chrome entirely --
+   tapping it opens the phone's native photo picker, and selecting a
+   photo fires the upload immediately (hx-trigger="change" on the
+   form), no separate Upload tap required. */
+.photo-upload-form {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.65rem;
+	margin: 1.75rem 0;
+}
+.photo-upload-trigger {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+	background: var(--accent);
+	color: var(--ground);
+	font-size: 2.4rem;
+	font-weight: 300;
+	line-height: 1;
+	padding-bottom: 0.15em;
+	cursor: pointer;
+	transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.photo-upload-trigger:active {
+	opacity: 0.85;
+	transform: scale(0.96);
+}
+.photo-upload-caption {
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.78rem;
+	font-weight: 500;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+/* Smaller variant for the guest book's optional photo field, sitting
+   inline in a multi-field form rather than as the page's sole action. */
+.photo-upload-trigger-sm {
+	width: 48px;
+	height: 48px;
+	font-size: 1.6rem;
+}
+.guestbook-photo-field { margin-bottom: 1.5rem; }
+.field-caption {
+	display: block;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.8rem;
+	font-weight: 500;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--muted);
+	margin-bottom: 0.6rem;
+}
+.guestbook-photo-row {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+.upload-result {
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.78rem;
+	font-weight: 500;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--accent);
+	text-align: center;
+	margin-bottom: 1rem;
+}
 .upload-failures {
 	list-style: none;
 	padding: 0;
@@ -530,7 +1047,7 @@ progress {
 .photo-grid {
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
-	gap: 0.4rem;
+	gap: 0.6rem;
 	margin: 1.25rem 0;
 }
 @media (min-width: 640px) {
@@ -545,26 +1062,30 @@ progress {
 .photo-thumb {
 	display: block;
 	aspect-ratio: 1 / 1;
+	overflow: hidden;
+	border-radius: var(--radius-sm);
 }
 .photo-thumb img {
 	display: block;
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
-	border-radius: var(--radius-sm);
+	filter: saturate(0.88) contrast(1.06) brightness(1.01) sepia(0.06);
+	transition: transform 0.2s ease;
+}
+.photo-thumb:active img {
+	transform: scale(1.06);
 }
 .pagination {
 	display: flex;
 	justify-content: space-between;
 	margin-top: 0.5rem;
-	font-weight: 700;
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-weight: 500;
 }
 .pagination a { text-decoration: none; color: var(--accent); }
 
-/* ---- QR pages (Wi-Fi, Share) ----
-   Locked light per the html.qr-page rules above; styling here must
-   only ever use the pinned custom properties, never a raw dark-mode
-   assumption. */
+/* ---- QR pages (Wi-Fi, Share) ---- */
 .qr-title { margin-bottom: 1.5rem; text-align: center; }
 .qr-card {
 	display: flex;

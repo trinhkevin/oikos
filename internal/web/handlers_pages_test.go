@@ -23,19 +23,6 @@ func TestWelcomePageRenders(t *testing.T) {
 	}
 }
 
-func TestCoffeeMenuPageRenders(t *testing.T) {
-	s := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/coffee", nil)
-	rec := httptest.NewRecorder()
-	s.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "Espresso") {
-		t.Error("expected coffee menu content in response")
-	}
-}
-
 func TestCocktailsMenuPageRenders(t *testing.T) {
 	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/cocktails", nil)
@@ -44,8 +31,21 @@ func TestCocktailsMenuPageRenders(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "Negroni") {
+	if !strings.Contains(rec.Body.String(), "Old Fashioned") {
 		t.Error("expected cocktail menu content in response")
+	}
+	if !strings.Contains(rec.Body.String(), "Pour Over") {
+		t.Error("expected coffee subsection folded into drinks response")
+	}
+}
+
+func TestCoffeeRouteRemoved(t *testing.T) {
+	s := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/coffee", nil)
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 now that coffee is folded into /cocktails", rec.Code)
 	}
 }
 
@@ -57,7 +57,7 @@ func TestRefreshmentsPageRenders(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "Mixed Nuts") {
+	if !strings.Contains(rec.Body.String(), "Egg Rolls") {
 		t.Error("expected refreshments content in response")
 	}
 }
@@ -78,27 +78,17 @@ func TestCatsIndexPageRenders(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "Farah") {
 		t.Error("expected cats index to list Farah")
 	}
+	if !strings.Contains(rec.Body.String(), "churu") {
+		t.Error("expected cats index to render Farah's bio inline (no more detail subsection)")
+	}
 }
 
-func TestCatDetailPageRenders(t *testing.T) {
+func TestCatDetailRouteRemoved(t *testing.T) {
 	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/cats/farah", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "churu") {
-		t.Error("expected cat detail page to render Farah's likes")
-	}
-}
-
-func TestCatDetailPageUnknownSlugReturns404(t *testing.T) {
-	s := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/cats/no-such-cat", nil)
-	rec := httptest.NewRecorder()
-	s.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404", rec.Code)
+		t.Errorf("status = %d, want 404 now that cat bios are folded into /cats", rec.Code)
 	}
 }

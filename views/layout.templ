@@ -1,28 +1,25 @@
 package views
 
-type HeaderVariant int
-
-const (
-	HeaderStandard HeaderVariant = iota
-	HeaderQR
-)
-
-templ Layout(title string, variant HeaderVariant, body templ.Component) {
+templ Layout(title string, body templ.Component) {
 	<!DOCTYPE html>
-	<html lang="en" class={ templ.KV("qr-page", variant == HeaderQR) }>
+	<html lang="en">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title } — Brivin Household</title>
+			<link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png"/>
+			<link rel="icon" type="image/png" sizes="16x16" href="/static/brand/favicon-16.png"/>
+			<link rel="apple-touch-icon" href="/static/brand/apple-touch-icon.png"/>
 			<link rel="stylesheet" href="/static/css/site.css"/>
 			<script src="/static/htmx.min.js"></script>
 		</head>
 		<body>
 			<header class="site-header">
-				<a class="site-title" href="/">Brivin Household</a>
-				if variant == HeaderStandard {
-					@MenuOverlay(NavItems)
-				}
+				@MenuToggle()
+				<a class="site-brand" href="/">
+					<img src="/static/brand/header-icon.png" alt="Brivin"/>
+				</a>
+				@MenuPanel(NavItems)
 			</header>
 			<main>
 				@body

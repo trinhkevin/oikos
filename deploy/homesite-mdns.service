@@ -1,0 +1,16 @@
+# deploy/homesite-mdns.service — publishes "home.local" via mDNS in addition to
+# the UniFi Local DNS Record, since Apple devices (iPhone/Mac) only resolve
+# .local names over multicast DNS and often never fall back to a router's
+# regular DNS resolver.
+[Unit]
+Description=Publish home.local via mDNS (Avahi)
+After=avahi-daemon.service network-online.target
+Wants=avahi-daemon.service network-online.target
+
+[Service]
+ExecStart=/usr/bin/avahi-publish -a -R home.local 192.168.1.186
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

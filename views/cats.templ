@@ -3,35 +3,37 @@ package views
 import "homesite/internal/content"
 
 templ CatsIndex(cats []content.Cat) {
-	@Layout("Meet the Cats", HeaderStandard, catsIndexBody(cats))
+	@Layout("Meet the Cats", catsIndexBody(cats))
 }
 
 templ catsIndexBody(cats []content.Cat) {
 	<h1>Meet the Cats</h1>
-	<div class="card-grid">
-		for _, cat := range cats {
-			<a class="nav-card" href={ templ.URL("/cats/" + cat.Slug) }>
-				<img src={ "/media/" + cat.Photo } alt={ cat.Name } class="cat-thumb"/>
-				<span class="nav-card-title">{ cat.Name }</span>
-			</a>
+	<div class="cat-gallery">
+		for i, cat := range cats {
+			<div class="cat-entry">
+				<div class="photo-frame">
+					<img src={ "/media/" + cat.Photo } alt={ cat.Name } class="cat-thumb"/>
+				</div>
+				<span class="cat-caption">{ cat.Name }</span>
+				<div class="prose">
+					@templ.Raw(cat.BioHTML)
+				</div>
+				if cat.Birthday != "" {
+					<p class="cat-meta"><strong>Birthday</strong> — { formatBirthday(cat.Birthday) }</p>
+				}
+				if len(cat.Likes) > 0 {
+					<p class="cat-meta"><strong>Likes</strong> — { joinStrings(cat.Likes) }</p>
+				}
+				if len(cat.Dislikes) > 0 {
+					<p class="cat-meta"><strong>Dislikes</strong> — { joinStrings(cat.Dislikes) }</p>
+				}
+				if len(cat.PetSpots) > 0 {
+					<p class="cat-meta"><strong>Favorite spot to be pet</strong> — { joinStrings(cat.PetSpots) }</p>
+				}
+			</div>
+			if i < len(cats)-1 {
+				<hr class="rule"/>
+			}
 		}
 	</div>
-}
-
-templ CatDetail(cat content.Cat) {
-	@Layout(cat.Name, HeaderStandard, catDetailBody(cat))
-}
-
-templ catDetailBody(cat content.Cat) {
-	<h1>{ cat.Name }</h1>
-	<img src={ "/media/" + cat.Photo } alt={ cat.Name } class="cat-photo"/>
-	<div class="prose">
-		@templ.Raw(cat.BioHTML)
-	</div>
-	if len(cat.Likes) > 0 {
-		<p><strong>Likes:</strong> { joinStrings(cat.Likes) }</p>
-	}
-	if len(cat.Dislikes) > 0 {
-		<p><strong>Dislikes:</strong> { joinStrings(cat.Dislikes) }</p>
-	}
 }

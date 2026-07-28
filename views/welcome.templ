@@ -1,16 +1,13 @@
 package views
 
 templ Welcome(bodyHTML string) {
-	@Layout("Welcome", HeaderStandard, welcomeBody(bodyHTML))
+	@Layout("Welcome", welcomeBody(bodyHTML))
 }
 
 templ welcomeBody(bodyHTML string) {
 	<div class="hero">
+		<img class="hero-wordmark" src="/static/brand/wordmark.png" alt="Brivin" width="776" height="248"/>
 		<span class="eyebrow">Owned by Zeke &amp; Farah. Managed by Kevin &amp; Brianna.</span>
-		<h1 class="hero-title">Brivin Household</h1>
-		<div class="prose">
-			@templ.Raw(bodyHTML)
-		</div>
 	</div>
 	@CardGrid(NavItems)
 }

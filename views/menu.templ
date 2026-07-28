@@ -3,7 +3,7 @@ package views
 import "homesite/internal/content"
 
 templ MenuPage(menu content.Menu) {
-	@Layout(menu.Title, HeaderStandard, menuBody(menu))
+	@Layout(menu.Title, menuBody(menu))
 }
 
 templ menuBody(menu content.Menu) {

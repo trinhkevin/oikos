@@ -1,0 +1,10 @@
+title: Food
+sections:
+  - name: Snacks
+    items:
+      - name: Egg Rolls
+        tags: [vegetarian]
+      - name: Charcuterie
+        description: Selection by Brianna.
+      - name: Assorted Chips
+      - name: Barbecue Basil Chicken Meatballs

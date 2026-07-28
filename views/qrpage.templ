@@ -6,7 +6,7 @@ package views
 // dedicated Wi-Fi variant, since SSID and password are two distinct
 // values that must not be concatenated into one ambiguous string.
 templ QRPage(title, qrSrc, altText, primaryText, fallbackText string) {
-	@Layout(title, HeaderQR, qrPageBody(title, qrSrc, altText, primaryText, fallbackText))
+	@Layout(title, qrPageBody(title, qrSrc, altText, primaryText, fallbackText))
 }
 
 templ qrPageBody(title, qrSrc, altText, primaryText, fallbackText string) {
@@ -21,7 +21,7 @@ templ qrPageBody(title, qrSrc, altText, primaryText, fallbackText string) {
 }
 
 templ WiFiQRPage(qrSrc, altText, ssid, password string) {
-	@Layout("Wi-Fi", HeaderQR, wifiQRPageBody(qrSrc, altText, ssid, password))
+	@Layout("Wi-Fi", wifiQRPageBody(qrSrc, altText, ssid, password))
 }
 
 templ wifiQRPageBody(qrSrc, altText, ssid, password string) {

@@ -11,6 +11,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"fmt"
+
 	"homesite/internal/guestbook"
 	"homesite/internal/photos"
 )
@@ -51,7 +53,7 @@ func GuestbookPage(entries []GuestbookEntryView) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("Guest Book", HeaderStandard, guestbookPageBody(entries, nil)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Guest Book", guestbookPageBody(entries, nil)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -88,7 +90,7 @@ func guestbookPageBody(entries []GuestbookEntryView, formErr *GuestbookFormError
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"guestbook-rl-message\"></div><div id=\"guestbook-entries\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"guestbook-rl-message\"></div><hr class=\"rule\"><div id=\"guestbook-entries\" class=\"guestbook-grid\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -125,7 +127,7 @@ func GuestbookForm(formErr *GuestbookFormError) templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<form hx-post=\"/guestbook\" hx-encoding=\"multipart/form-data\" hx-target=\"#guestbook-entries\" hx-swap=\"afterbegin\" id=\"guestbook-form\"><label>Name <input type=\"text\" name=\"name\" maxlength=\"40\" required")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<form hx-post=\"/guestbook\" hx-encoding=\"multipart/form-data\" hx-target=\"#guestbook-entries\" hx-swap=\"afterbegin\" id=\"guestbook-form\" hx-indicator=\"#guestbook-spinner\"><label>Name <input type=\"text\" name=\"name\" maxlength=\"40\" required")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -137,7 +139,7 @@ func GuestbookForm(formErr *GuestbookFormError) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(formErr.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 43, Col: 25}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 46, Col: 25}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -156,14 +158,14 @@ func GuestbookForm(formErr *GuestbookFormError) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(formErr.Message_)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 50, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 53, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</textarea></label> <label>Photo (optional) <input type=\"file\" name=\"photo\" accept=\"image/jpeg,image/png,image/webp,image/heic\"></label> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</textarea></label><div class=\"guestbook-photo-field\"><span class=\"field-caption\">Photo (optional)</span><div class=\"guestbook-photo-row\"><label for=\"guestbook-photo-input\" class=\"photo-upload-trigger photo-upload-trigger-sm\" aria-label=\"Add a photo\"><span aria-hidden=\"true\">+</span></label> <input type=\"file\" id=\"guestbook-photo-input\" name=\"photo\" accept=\"image/jpeg,image/png,image/webp,image/heic\" class=\"visually-hidden\"></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -175,7 +177,7 @@ func GuestbookForm(formErr *GuestbookFormError) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(formErr.Message)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 59, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 67, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -186,7 +188,7 @@ func GuestbookForm(formErr *GuestbookFormError) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<button type=\"submit\">Sign the guest book</button></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"upload-controls\"><button type=\"submit\">Sign the guest book</button> <span id=\"guestbook-spinner\" class=\"spinner htmx-indicator\" aria-hidden=\"true\"></span></div></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -216,69 +218,50 @@ func GuestbookEntries(entries []GuestbookEntryView) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		for _, ev := range entries {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<article class=\"guestbook-entry\"><p class=\"guestbook-name\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<article class=\"guestbook-entry\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if ev.Photo != nil {
+				templ_7745c5c3_Err = PhotoLightbox(
+					fmt.Sprintf("lightbox-guestbook-%d", ev.Photo.ID),
+					"/uploads/"+ev.Photo.ThumbPath,
+					"/uploads/"+ev.Photo.Path,
+					"Guest book photo",
+					"photo-frame guestbook-photo-frame",
+					"guestbook-photo",
+				).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<p class=\"guestbook-name\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(ev.Entry.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 68, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 89, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</p><p class=\"guestbook-message\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</p><p class=\"guestbook-message\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(ev.Entry.Message)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 69, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 90, Col: 50}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</p>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if ev.Photo != nil {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<a href=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var10 templ.SafeURL
-				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/uploads/" + ev.Photo.Path))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 71, Col: 52}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" class=\"photo-thumb\"><img src=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var11 string
-				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs("/uploads/" + ev.Photo.ThumbPath)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/guestbook.templ`, Line: 72, Col: 48}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" alt=\"Guest book photo\" loading=\"lazy\"></a>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</article>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</p></article>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

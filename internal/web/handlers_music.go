@@ -2,6 +2,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -11,19 +12,47 @@ import (
 	"homesite/views"
 )
 
+// fetchQueue centralizes the queue-error logging so every caller (the
+// initial page render, the standalone queue-panel route, and the
+// post-request refresh) degrades the same way on a Spotify error.
+func (s *Server) fetchQueue(ctx context.Context) []spotify.Track {
+	queue, err := s.spotifyClient.Queue(ctx)
+	if err != nil {
+		log.Printf("web: queue error: %v", err)
+	}
+	return queue
+}
+
 func (s *Server) handleMusicPage(w http.ResponseWriter, r *http.Request) {
 	nowPlaying, err := s.spotifyClient.NowPlaying(r.Context())
 	nowPlayingErr := err != nil
 	if err != nil {
 		log.Printf("web: now-playing error: %v", err)
 	}
+	queue := s.fetchQueue(r.Context())
+	render(w, r, views.MusicPage(nowPlaying, nowPlayingErr, queue))
+}
 
-	recent, err := s.requestStore.Recent(r.Context(), 10)
+// handleMusicNowPlayingFragment backs the Music page's live-updating
+// now-playing section: HTMX polls this on an interval and swaps in the
+// returned fragment, so guests see the current track change without
+// ever reloading the page. The queue panel is deliberately not part of
+// this poll — it would otherwise silently kick a guest out of an
+// in-progress search every few seconds.
+func (s *Server) handleMusicNowPlayingFragment(w http.ResponseWriter, r *http.Request) {
+	nowPlaying, err := s.spotifyClient.NowPlaying(r.Context())
+	nowPlayingErr := err != nil
 	if err != nil {
-		log.Printf("web: recent requests error: %v", err)
+		log.Printf("web: now-playing error: %v", err)
 	}
+	render(w, r, views.NowPlayingFragment(nowPlaying, nowPlayingErr))
+}
 
-	render(w, r, views.MusicPage(nowPlaying, nowPlayingErr, recent))
+// handleMusicQueueFragment renders the queue panel's default (non-
+// search) state. It backs both the "✕ close search" button and the
+// out-of-band refresh after a song is successfully queued.
+func (s *Server) handleMusicQueueFragment(w http.ResponseWriter, r *http.Request) {
+	render(w, r, views.QueueView(s.fetchQueue(r.Context())))
 }
 
 // minSearchQueryLength guards against firing a Spotify search on every
@@ -36,16 +65,20 @@ const minSearchQueryLength = 2
 func (s *Server) handleMusicSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	if len(q) < minSearchQueryLength {
-		render(w, r, views.SearchResults(nil))
+		render(w, r, views.SearchViewEmpty())
 		return
 	}
 	tracks, err := s.spotifyClient.Search(r.Context(), q)
 	if err != nil {
 		log.Printf("web: search error: %v", err)
-		render(w, r, views.SearchResultsError(spotifyErrorMessage(err)))
+		render(w, r, views.SearchViewError(spotifyErrorMessage(err)))
 		return
 	}
-	render(w, r, views.SearchResults(tracks))
+	if len(tracks) == 0 {
+		render(w, r, views.SearchViewEmpty())
+		return
+	}
+	render(w, r, views.SearchView(tracks))
 }
 
 func (s *Server) handleMusicRequest(w http.ResponseWriter, r *http.Request) {
@@ -90,6 +123,15 @@ func (s *Server) handleMusicRequest(w http.ResponseWriter, r *http.Request) {
 		log.Printf("web: recording song request: %v", insertErr)
 	}
 
+	if success {
+		// Refresh the queue panel back to the queue view (out-of-band)
+		// alongside the toast — this is what returns a guest to the queue
+		// after queueing from within a search, per the "queue a song to
+		// show the queue again" requirement. A failed request leaves the
+		// search results in place instead, so the guest can retry.
+		render(w, r, views.RequestResultWithQueueRefresh(success, message, s.fetchQueue(r.Context())))
+		return
+	}
 	render(w, r, views.RequestResult(success, message))
 }
 
@@ -101,6 +143,10 @@ func spotifyErrorMessage(err error) string {
 		return "Song requests are down right now"
 	case errors.Is(err, spotify.ErrRateLimited):
 		return "Spotify's throttling us — try again in a minute"
+	case errors.Is(err, spotify.ErrPremiumRequired):
+		return "Queueing needs Spotify Premium on the host's account"
+	case errors.Is(err, spotify.ErrPlaybackRejected):
+		return "Spotify rejected that — try again once something's playing"
 	default:
 		return "Couldn't reach Spotify, try again"
 	}

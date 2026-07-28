@@ -3,54 +3,128 @@ package views
 
 import "homesite/internal/spotify"
 
-templ MusicPage(nowPlaying *spotify.Track, nowPlayingErr bool, recent []spotify.SongRequest) {
-	@Layout("Music Requests", HeaderStandard, musicBody(nowPlaying, nowPlayingErr, recent))
+templ MusicPage(nowPlaying *spotify.Track, nowPlayingErr bool, queue []spotify.Track) {
+	@Layout("Music Requests", musicBody(nowPlaying, nowPlayingErr, queue))
 }
 
-templ musicBody(nowPlaying *spotify.Track, nowPlayingErr bool, recent []spotify.SongRequest) {
+templ musicBody(nowPlaying *spotify.Track, nowPlayingErr bool, queue []spotify.Track) {
 	<h1>Music Requests</h1>
+	<div id="now-playing-fragment" hx-get="/music/now-playing" hx-trigger="every 6s" hx-swap="innerHTML">
+		@NowPlayingFragment(nowPlaying, nowPlayingErr)
+	</div>
+	<div class="music-search-wrapper">
+		<input type="search" name="q" placeholder="Search for a song" class="music-search-input"
+			hx-get="/music/search" hx-trigger="keyup changed delay:300ms" hx-target="#queue-panel"/>
+	</div>
+	<div id="queue-panel">
+		@QueueView(queue)
+	</div>
+	<div id="request-toast"></div>
+	<div id="music-request-rl-message"></div>
+}
+
+templ NowPlayingFragment(nowPlaying *spotify.Track, nowPlayingErr bool) {
 	<div class="now-playing">
 		if nowPlayingErr {
 			<p class="quiet-note">Can't reach Spotify right now.</p>
 		} else if nowPlaying == nil {
-			<p class="quiet-note">Nothing's playing yet — ask the host to start the music 🎵</p>
+			<p class="quiet-note">No tunes right now — save your best requests, the next party's always around the corner 🎉</p>
 		} else {
-			<p>Now playing: <strong>{ nowPlaying.Name }</strong> — { nowPlaying.Artists }</p>
+			<p class="cat-meta">Now Playing</p>
+			<div class="now-playing-track">
+				if nowPlaying.AlbumArtURL != "" {
+					<img class="album-art" src={ nowPlaying.AlbumArtURL } alt="Album art"/>
+				}
+				<div class="now-playing-info">
+					<span class="eq-bars" aria-hidden="true">
+						<span></span><span></span><span></span>
+					</span>
+					<div class="now-playing-text">
+						<p class="now-playing-name">{ nowPlaying.Name }</p>
+						<p class="now-playing-artist">{ nowPlaying.Artists }</p>
+					</div>
+				</div>
+			</div>
 		}
 	</div>
-	<input type="search" name="q" placeholder="Search for a song"
-		hx-get="/music/search" hx-trigger="keyup changed delay:300ms" hx-target="#search-results"/>
-	<div id="search-results"></div>
-	<div id="music-request-rl-message"></div>
-	if len(recent) > 0 {
-		<h2>Recently added</h2>
-		<ul class="track-list">
-			for _, r := range recent {
-				<li>{ r.TrackName } — { r.ArtistName }</li>
-			}
-		</ul>
-	}
 }
 
-templ SearchResults(tracks []spotify.Track) {
-	if len(tracks) == 0 {
-		<p class="quiet-note">No matches — try the artist name.</p>
+// QueueView is the panel's default (non-search) state -- the full
+// upcoming queue, not capped, since the panel itself now scrolls
+// within a fixed viewport-relative height rather than the page growing
+// under it.
+templ QueueView(queue []spotify.Track) {
+	if len(queue) == 0 {
+		<p class="quiet-note queue-empty-note">Nothing queued yet — search for a song above.</p>
 	} else {
-		for _, t := range tracks {
-			<form hx-post="/music/request" hx-target="#search-results" hx-swap="innerHTML">
-				<input type="hidden" name="uri" value={ t.URI }/>
-				<input type="hidden" name="name" value={ t.Name }/>
-				<input type="hidden" name="artist" value={ t.Artists }/>
-				<button type="submit">{ t.Name } — { t.Artists }</button>
-			</form>
+		<p class="cat-meta queue-panel-label">Up next</p>
+		for _, t := range queue {
+			<div class="queue-item">
+				if t.AlbumArtURL != "" {
+					<img class="track-result-art" src={ t.AlbumArtURL } alt=""/>
+				}
+				<span class="track-result-text">
+					<span class="track-result-name">{ t.Name }</span>
+					<span class="track-result-artist">{ t.Artists }</span>
+				</span>
+			</div>
 		}
 	}
 }
 
-templ SearchResultsError(message string) {
+// SearchPanelHeader is shared by every search-mode state (results, no
+// matches, error) -- the close button is how a guest gets back to the
+// queue view without waiting for a page reload or a track to queue.
+templ SearchPanelHeader() {
+	<div class="queue-panel-header">
+		<span class="cat-meta">Search results</span>
+		<button type="button" class="queue-panel-close" hx-get="/music/queue" hx-target="#queue-panel" hx-swap="innerHTML" aria-label="Close search">✕</button>
+	</div>
+}
+
+templ SearchView(tracks []spotify.Track) {
+	@SearchPanelHeader()
+	for _, t := range tracks {
+		<form hx-post="/music/request" hx-target="#request-toast" hx-swap="innerHTML" class="track-result-form">
+			<input type="hidden" name="uri" value={ t.URI }/>
+			<input type="hidden" name="name" value={ t.Name }/>
+			<input type="hidden" name="artist" value={ t.Artists }/>
+			<button type="submit" class="track-result">
+				if t.AlbumArtURL != "" {
+					<img class="track-result-art" src={ t.AlbumArtURL } alt=""/>
+				}
+				<span class="track-result-text">
+					<span class="track-result-name">{ t.Name }</span>
+					<span class="track-result-artist">{ t.Artists }</span>
+				</span>
+				<span class="track-result-queue-icon" aria-hidden="true">+</span>
+			</button>
+		</form>
+	}
+}
+
+templ SearchViewEmpty() {
+	@SearchPanelHeader()
+	<p class="quiet-note">No matches — try the artist name.</p>
+}
+
+templ SearchViewError(message string) {
+	@SearchPanelHeader()
 	<p class="quiet-note">{ message }</p>
 }
 
 templ RequestResult(success bool, message string) {
-	<p class={ templ.KV("request-success", success), templ.KV("request-failure", !success) }>{ message }</p>
+	<p class={ "toast", templ.KV("request-success", success), templ.KV("request-failure", !success) }>{ message }</p>
+}
+
+// RequestResultWithQueueRefresh is the POST /music/request response: the
+// toast goes to the form's normal hx-target, and the out-of-band div
+// below refreshes #queue-panel back to the queue view regardless of
+// whether the guest queued from a search -- "queue a song to show the
+// queue again."
+templ RequestResultWithQueueRefresh(success bool, message string, queue []spotify.Track) {
+	@RequestResult(success, message)
+	<div id="queue-panel" hx-swap-oob="true">
+		@QueueView(queue)
+	</div>
 }

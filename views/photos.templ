@@ -19,7 +19,7 @@ type UploadResult struct {
 }
 
 templ PhotosPage(gallery []photos.Photo, page int, hasPrev, hasMore, showDiskWarning bool) {
-	@Layout("Upload Photos", HeaderStandard, photosPageBody(gallery, page, hasPrev, hasMore, showDiskWarning))
+	@Layout("Upload Photos", photosPageBody(gallery, page, hasPrev, hasMore, showDiskWarning))
 }
 
 templ photosPageBody(gallery []photos.Photo, page int, hasPrev, hasMore, showDiskWarning bool) {
@@ -28,23 +28,20 @@ templ photosPageBody(gallery []photos.Photo, page int, hasPrev, hasMore, showDis
 		<p class="disk-warning">Photo storage is almost full — uploads may start failing soon.</p>
 	}
 	<form hx-post="/photos" hx-encoding="multipart/form-data" hx-target="#photos-content" hx-swap="innerHTML"
-		onsubmit="document.getElementById('upload-progress').value=0">
-		<input type="file" name="photos" accept="image/jpeg,image/png,image/webp,image/heic" multiple required/>
-		<progress id="upload-progress" value="0" max="100"></progress>
-		<button type="submit">Upload</button>
+		hx-indicator="#photos-spinner" hx-trigger="change" class="photo-upload-form">
+		<label for="photos-input" class="photo-upload-trigger" aria-label="Add photos">
+			<span aria-hidden="true">+</span>
+		</label>
+		<input type="file" id="photos-input" name="photos" accept="image/jpeg,image/png,image/webp,image/heic"
+			multiple required class="visually-hidden"/>
+		<span class="photo-upload-caption">Add photos</span>
+		<span id="photos-spinner" class="spinner htmx-indicator" aria-hidden="true"></span>
 	</form>
 	<div id="photos-rl-message"></div>
+	<hr class="rule"/>
 	<div id="photos-content">
 		@PhotosContent(nil, gallery, page, hasPrev, hasMore)
 	</div>
-	<script>
-		document.body.addEventListener('htmx:xhrProgress', function(evt) {
-			var bar = document.getElementById('upload-progress');
-			if (bar && evt.detail.lengthComputable) {
-				bar.value = (evt.detail.loaded / evt.detail.total) * 100;
-			}
-		});
-	</script>
 }
 
 templ PhotosContent(result *UploadResult, gallery []photos.Photo, page int, hasPrev, hasMore bool) {
@@ -60,9 +57,7 @@ templ PhotosContent(result *UploadResult, gallery []photos.Photo, page int, hasP
 	}
 	<div class="photo-grid">
 		for _, p := range gallery {
-			<a href={ templ.URL("/uploads/" + p.Path) } class="photo-thumb">
-				<img src={ "/uploads/" + p.ThumbPath } alt="Guest photo" loading="lazy"/>
-			</a>
+			@PhotoLightbox(fmt.Sprintf("lightbox-photo-%d", p.ID), "/uploads/"+p.ThumbPath, "/uploads/"+p.Path, "Guest photo", "photo-thumb", "")
 		}
 	</div>
 	<nav class="pagination">

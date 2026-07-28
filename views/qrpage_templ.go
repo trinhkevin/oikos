@@ -35,7 +35,7 @@ func QRPage(title, qrSrc, altText, primaryText, fallbackText string) templ.Compo
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout(title, HeaderQR, qrPageBody(title, qrSrc, altText, primaryText, fallbackText)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout(title, qrPageBody(title, qrSrc, altText, primaryText, fallbackText)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -168,7 +168,7 @@ func WiFiQRPage(qrSrc, altText, ssid, password string) templ.Component {
 			templ_7745c5c3_Var8 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("Wi-Fi", HeaderQR, wifiQRPageBody(qrSrc, altText, ssid, password)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Wi-Fi", wifiQRPageBody(qrSrc, altText, ssid, password)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

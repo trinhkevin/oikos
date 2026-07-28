@@ -8,9 +8,9 @@ type NavItem struct {
 
 var NavItems = []NavItem{
 	{Title: "Wi-Fi", Href: "/wifi", Blurb: "Join the network"},
-	{Title: "Coffee Menu", Href: "/coffee", Blurb: "Current coffee drinks"},
-	{Title: "Cocktail Menu", Href: "/cocktails", Blurb: "Current cocktails"},
-	{Title: "Refreshments", Href: "/refreshments", Blurb: "Snacks and food"},
+	{Title: "Drinks", Href: "/cocktails", Blurb: "Cocktails, coffee, beer, and non-alcoholic"},
+	{Title: "Food", Href: "/refreshments", Blurb: "Snacks and food"},
+	{Title: "Entertainment", Href: "/entertainment", Blurb: "Play as a group"},
 	{Title: "Music Requests", Href: "/music", Blurb: "Queue up a song"},
 	{Title: "Upload Photos", Href: "/photos", Blurb: "Share your shots"},
 	{Title: "Guest Book", Href: "/guestbook", Blurb: "Leave a note"},
@@ -29,11 +29,17 @@ templ CardGrid(items []NavItem) {
 	</div>
 }
 
-templ MenuOverlay(items []NavItem) {
+templ MenuToggle() {
 	<input type="checkbox" id="menu-toggle" class="menu-toggle-input"/>
 	<label for="menu-toggle" class="menu-toggle-button" aria-label="Open menu">☰</label>
+}
+
+templ MenuPanel(items []NavItem) {
 	<div class="menu-overlay">
-		<label for="menu-toggle" class="menu-overlay-close" aria-label="Close menu">✕</label>
+		<div class="menu-overlay-header">
+			<img src="/static/brand/wordmark.png" alt="Brivin" class="menu-overlay-brand" width="776" height="248"/>
+			<label for="menu-toggle" class="menu-overlay-close" aria-label="Close menu">✕</label>
+		</div>
 		<nav class="menu-overlay-list">
 			<a href="/">Welcome</a>
 			for _, item := range items {

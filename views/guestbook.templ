@@ -2,6 +2,8 @@
 package views
 
 import (
+	"fmt"
+
 	"homesite/internal/guestbook"
 	"homesite/internal/photos"
 )
@@ -22,20 +24,21 @@ type GuestbookEntryView struct {
 }
 
 templ GuestbookPage(entries []GuestbookEntryView) {
-	@Layout("Guest Book", HeaderStandard, guestbookPageBody(entries, nil))
+	@Layout("Guest Book", guestbookPageBody(entries, nil))
 }
 
 templ guestbookPageBody(entries []GuestbookEntryView, formErr *GuestbookFormError) {
 	<h1>Guest Book</h1>
 	@GuestbookForm(formErr)
 	<div id="guestbook-rl-message"></div>
-	<div id="guestbook-entries">
+	<hr class="rule"/>
+	<div id="guestbook-entries" class="guestbook-grid">
 		@GuestbookEntries(entries)
 	</div>
 }
 
 templ GuestbookForm(formErr *GuestbookFormError) {
-	<form hx-post="/guestbook" hx-encoding="multipart/form-data" hx-target="#guestbook-entries" hx-swap="afterbegin" id="guestbook-form">
+	<form hx-post="/guestbook" hx-encoding="multipart/form-data" hx-target="#guestbook-entries" hx-swap="afterbegin" id="guestbook-form" hx-indicator="#guestbook-spinner">
 		<label>
 			Name
 			<input type="text" name="name" maxlength="40" required
@@ -51,27 +54,40 @@ templ GuestbookForm(formErr *GuestbookFormError) {
 				}
 			</textarea>
 		</label>
-		<label>
-			Photo (optional)
-			<input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/heic"/>
-		</label>
+		<div class="guestbook-photo-field">
+			<span class="field-caption">Photo (optional)</span>
+			<div class="guestbook-photo-row">
+				<label for="guestbook-photo-input" class="photo-upload-trigger photo-upload-trigger-sm" aria-label="Add a photo">
+					<span aria-hidden="true">+</span>
+				</label>
+				<input type="file" id="guestbook-photo-input" name="photo" accept="image/jpeg,image/png,image/webp,image/heic" class="visually-hidden"/>
+			</div>
+		</div>
 		if formErr != nil {
 			<p class="form-error">{ formErr.Message }</p>
 		}
-		<button type="submit">Sign the guest book</button>
+		<div class="upload-controls">
+			<button type="submit">Sign the guest book</button>
+			<span id="guestbook-spinner" class="spinner htmx-indicator" aria-hidden="true"></span>
+		</div>
 	</form>
 }
 
 templ GuestbookEntries(entries []GuestbookEntryView) {
 	for _, ev := range entries {
 		<article class="guestbook-entry">
+			if ev.Photo != nil {
+				@PhotoLightbox(
+					fmt.Sprintf("lightbox-guestbook-%d", ev.Photo.ID),
+					"/uploads/"+ev.Photo.ThumbPath,
+					"/uploads/"+ev.Photo.Path,
+					"Guest book photo",
+					"photo-frame guestbook-photo-frame",
+					"guestbook-photo",
+				)
+			}
 			<p class="guestbook-name">{ ev.Entry.Name }</p>
 			<p class="guestbook-message">{ ev.Entry.Message }</p>
-			if ev.Photo != nil {
-				<a href={ templ.URL("/uploads/" + ev.Photo.Path) } class="photo-thumb">
-					<img src={ "/uploads/" + ev.Photo.ThumbPath } alt="Guest book photo" loading="lazy"/>
-				</a>
-			}
 		</article>
 	}
 }

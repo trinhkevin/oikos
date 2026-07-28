@@ -1,7 +1,7 @@
 site:
   title: "Brivin Household"
   listen: ":80"
-  url: "http://home.arpa"
+  url: "http://home.local"
   fallback_url: "http://192.168.1.50"
 wifi:
   ssid: "YOUR_SSID"

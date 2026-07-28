@@ -9,11 +9,10 @@ import (
 
 func (s *Server) registerPageRoutes() {
 	s.mux.HandleFunc("GET /{$}", s.handleWelcome)
-	s.mux.HandleFunc("GET /coffee", s.handleMenu(s.cfg.ContentDir+"/coffee.yaml"))
-	s.mux.HandleFunc("GET /cocktails", s.handleMenu(s.cfg.ContentDir+"/cocktails.yaml"))
-	s.mux.HandleFunc("GET /refreshments", s.handleMenu(s.cfg.ContentDir+"/refreshments.yaml"))
+	s.mux.HandleFunc("GET /cocktails", s.handleMenu(s.cfg.ContentDir+"/drinks.yaml"))
+	s.mux.HandleFunc("GET /refreshments", s.handleMenu(s.cfg.ContentDir+"/food.yaml"))
+	s.mux.HandleFunc("GET /entertainment", s.handleEntertainment)
 	s.mux.HandleFunc("GET /cats", s.handleCatsIndex)
-	s.mux.HandleFunc("GET /cats/{slug}", s.handleCatDetail)
 	s.mux.HandleFunc("GET /wifi", s.handleWiFiPage)
 	s.mux.HandleFunc("GET /wifi/qr.png", s.handleWiFiQRPng)
 	s.mux.HandleFunc("GET /share", s.handleSharePage)
@@ -23,6 +22,8 @@ func (s *Server) registerPageRoutes() {
 	s.mux.HandleFunc("GET /guestbook", s.handleGuestbookPage)
 	s.mux.HandleFunc("POST /guestbook", s.rateLimit(s.guestbookLimiter, "guestbook-rl-message", s.handleGuestbookCreate))
 	s.mux.HandleFunc("GET /music", s.handleMusicPage)
+	s.mux.HandleFunc("GET /music/now-playing", s.handleMusicNowPlayingFragment)
+	s.mux.HandleFunc("GET /music/queue", s.handleMusicQueueFragment)
 	s.mux.HandleFunc("GET /music/search", s.handleMusicSearch)
 	s.mux.HandleFunc("POST /music/request", s.rateLimit(s.songRequestLimiter, "music-request-rl-message", s.handleMusicRequest))
 	s.mux.HandleFunc("GET /spotify/login", s.handleSpotifyLogin)
@@ -47,6 +48,10 @@ func (s *Server) handleMenu(path string) http.HandlerFunc {
 	}
 }
 
+func (s *Server) handleEntertainment(w http.ResponseWriter, r *http.Request) {
+	render(w, r, views.EntertainmentPage())
+}
+
 func (s *Server) handleCatsIndex(w http.ResponseWriter, r *http.Request) {
 	cats, err := s.catLoader.LoadAll()
 	if err != nil {
@@ -55,12 +60,3 @@ func (s *Server) handleCatsIndex(w http.ResponseWriter, r *http.Request) {
 	render(w, r, views.CatsIndex(cats))
 }
 
-func (s *Server) handleCatDetail(w http.ResponseWriter, r *http.Request) {
-	slug := r.PathValue("slug")
-	cat, err := s.catLoader.LoadOne(slug)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	render(w, r, views.CatDetail(cat))
-}
