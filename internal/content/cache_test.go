@@ -1,6 +1,7 @@
 package content
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -60,5 +61,49 @@ func TestCacheMissingFileReturnsError(t *testing.T) {
 	_, err := c.Get("/no/such/file", func(b []byte) (any, error) { return nil, nil })
 	if err == nil {
 		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestCacheServesStaleValueOnParseFailure(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sample.txt")
+	if err := os.WriteFile(path, []byte("valid"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewCache()
+	parse := func(b []byte) (any, error) {
+		content := string(b)
+		if content == "invalid" {
+			return nil, fmt.Errorf("parse error")
+		}
+		return content, nil
+	}
+
+	// First Get succeeds and caches "valid"
+	got, err := c.Get(path, parse)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.(string) != "valid" {
+		t.Fatalf("got %v, want valid", got)
+	}
+
+	// Modify file to unparseable content and advance mtime
+	future := time.Now().Add(2 * time.Second)
+	if err := os.WriteFile(path, []byte("invalid"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, future, future); err != nil {
+		t.Fatal(err)
+	}
+
+	// Get should return stale "valid" value with error
+	got, err = c.Get(path, parse)
+	if err == nil {
+		t.Fatal("expected error after parse failure")
+	}
+	if got.(string) != "valid" {
+		t.Fatalf("got %v, want valid (stale) after parse failure", got)
 	}
 }
