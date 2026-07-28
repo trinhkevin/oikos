@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"homesite/internal/config"
+	"homesite/internal/store"
 )
 
 func testConfig() *config.Config {
@@ -17,8 +18,18 @@ func testConfig() *config.Config {
 	}
 }
 
+func newTestServer(t *testing.T) *Server {
+	t.Helper()
+	db, err := store.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return New(testConfig(), db)
+}
+
 func TestHealthzReturnsOK(t *testing.T) {
-	s := New(testConfig())
+	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -28,7 +39,7 @@ func TestHealthzReturnsOK(t *testing.T) {
 }
 
 func TestStaticServesHTMX(t *testing.T) {
-	s := New(testConfig())
+	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/static/htmx.min.js", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)

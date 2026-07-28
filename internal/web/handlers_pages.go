@@ -20,6 +20,8 @@ func (s *Server) registerPageRoutes() {
 	s.mux.HandleFunc("GET /share/qr.png", s.handleShareQRPng)
 	s.mux.HandleFunc("GET /photos", s.handlePhotosPage)
 	s.mux.HandleFunc("POST /photos", s.handlePhotosUpload)
+	s.mux.HandleFunc("GET /guestbook", s.handleGuestbookPage)
+	s.mux.HandleFunc("POST /guestbook", s.handleGuestbookCreate)
 }
 
 func (s *Server) handleWelcome(w http.ResponseWriter, r *http.Request) {

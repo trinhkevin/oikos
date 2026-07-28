@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"homesite/internal/config"
-	"homesite/internal/photos"
 	"homesite/internal/store"
 )
 
@@ -25,16 +24,15 @@ func testConfigWithPhotos(t *testing.T) (*config.Config, string) {
 	return cfg, uploadsDir
 }
 
-// newTestServerWithPhotos builds a Server via the current single-argument
-// New(cfg) and then wires photosStore/photosIngester directly. New doesn't
-// open a database yet (that requires a *sql.DB, threaded through starting
-// in Task 15), so tests construct the store/ingester themselves against an
-// in-memory database — this is a deliberate, temporary seam documented in
-// the Task 14 brief's Step 5.
 func newTestServerWithPhotos(t *testing.T) *Server {
 	t.Helper()
 	cfg, _ := testConfigWithPhotos(t)
-	return newTestServerWithPhotosConfig(t, cfg)
+	db, err := store.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return New(cfg, db)
 }
 
 func newTestServerWithPhotosConfig(t *testing.T, cfg *config.Config) *Server {
@@ -44,10 +42,7 @@ func newTestServerWithPhotosConfig(t *testing.T, cfg *config.Config) *Server {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	s := New(cfg)
-	s.photosStore = photos.NewStore(db)
-	s.photosIngester = photos.NewIngester(s.photosStore, cfg.Photos, cfg.UploadsDir)
-	return s
+	return New(cfg, db)
 }
 
 func multipartJPEGRequest(t *testing.T, filename string, body []byte) *http.Request {

@@ -1,0 +1,56 @@
+// views/guestbook.templ
+package views
+
+import "homesite/internal/guestbook"
+
+type GuestbookFormError struct {
+	Field    string
+	Message  string
+	Name     string
+	Message_ string
+}
+
+templ GuestbookPage(entries []guestbook.Entry) {
+	@Layout("Guest Book", HeaderStandard, guestbookPageBody(entries, nil))
+}
+
+templ guestbookPageBody(entries []guestbook.Entry, formErr *GuestbookFormError) {
+	<h1>Guest Book</h1>
+	@GuestbookForm(formErr)
+	<div id="guestbook-entries">
+		@GuestbookEntries(entries)
+	</div>
+}
+
+templ GuestbookForm(formErr *GuestbookFormError) {
+	<form hx-post="/guestbook" hx-target="#guestbook-entries" hx-swap="afterbegin" id="guestbook-form">
+		<label>
+			Name
+			<input type="text" name="name" maxlength="40" required
+				if formErr != nil {
+					value={ formErr.Name }
+				}/>
+		</label>
+		<label>
+			Message
+			<textarea name="message" maxlength="500" required>
+				if formErr != nil {
+					{ formErr.Message_ }
+				}
+			</textarea>
+		</label>
+		if formErr != nil {
+			<p class="form-error">{ formErr.Message }</p>
+		}
+		<button type="submit">Sign the guest book</button>
+	</form>
+}
+
+templ GuestbookEntries(entries []guestbook.Entry) {
+	for _, e := range entries {
+		<article class="guestbook-entry">
+			<p class="guestbook-name">{ e.Name }</p>
+			<p class="guestbook-message">{ e.Message }</p>
+		</article>
+	}
+}

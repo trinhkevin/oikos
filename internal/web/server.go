@@ -2,12 +2,14 @@
 package web
 
 import (
+	"database/sql"
 	"io/fs"
 	"net/http"
 
 	homesite "homesite"
 	"homesite/internal/config"
 	"homesite/internal/content"
+	"homesite/internal/guestbook"
 	"homesite/internal/photos"
 )
 
@@ -19,16 +21,22 @@ type Server struct {
 	welcomeLoader  *content.WelcomeLoader
 	photosStore    *photos.Store
 	photosIngester *photos.Ingester
+	guestbookStore *guestbook.Store
 }
 
-func New(cfg *config.Config) *Server {
+func New(cfg *config.Config, db *sql.DB) *Server {
 	cache := content.NewCache()
+	photosStore := photos.NewStore(db)
+
 	s := &Server{
-		mux:           http.NewServeMux(),
-		cfg:           cfg,
-		menuLoader:    content.NewMenuLoader(cache),
-		catLoader:     content.NewCatLoader(cache, cfg.ContentDir+"/cats"),
-		welcomeLoader: content.NewWelcomeLoader(cache),
+		mux:            http.NewServeMux(),
+		cfg:            cfg,
+		menuLoader:     content.NewMenuLoader(cache),
+		catLoader:      content.NewCatLoader(cache, cfg.ContentDir+"/cats"),
+		welcomeLoader:  content.NewWelcomeLoader(cache),
+		photosStore:    photosStore,
+		photosIngester: photos.NewIngester(photosStore, cfg.Photos, cfg.UploadsDir),
+		guestbookStore: guestbook.NewStore(db),
 	}
 
 	staticSub, err := fs.Sub(homesite.StaticFS, "static")
@@ -42,12 +50,6 @@ func New(cfg *config.Config) *Server {
 
 	uploadsDir := http.Dir(cfg.UploadsDir)
 	s.mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(uploadsDir)))
-
-	// Photo store and ingester are deliberately NOT constructed here yet —
-	// they need a live *sql.DB, which main.go opens once at startup in
-	// Task 15 alongside the guest book (same database). Until then, tests
-	// construct a Server via New and set s.photosStore/s.photosIngester
-	// directly. This is a deliberate, temporary seam that Task 15 closes.
 
 	s.mux.HandleFunc("GET /healthz", s.handleHealthz)
 	s.registerPageRoutes()

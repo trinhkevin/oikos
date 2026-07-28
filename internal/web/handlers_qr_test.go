@@ -18,7 +18,8 @@ func testConfigWithWiFi() *config.Config {
 }
 
 func TestWiFiPageRendersCredentials(t *testing.T) {
-	s := New(testConfigWithWiFi())
+	s := newTestServer(t)
+	s.cfg = testConfigWithWiFi()
 	req := httptest.NewRequest(http.MethodGet, "/wifi", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -35,7 +36,8 @@ func TestWiFiPageRendersCredentials(t *testing.T) {
 }
 
 func TestWiFiQRPngServesImage(t *testing.T) {
-	s := New(testConfigWithWiFi())
+	s := newTestServer(t)
+	s.cfg = testConfigWithWiFi()
 	req := httptest.NewRequest(http.MethodGet, "/wifi/qr.png", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -51,7 +53,8 @@ func TestWiFiQRPngServesImage(t *testing.T) {
 }
 
 func TestSharePageRendersURLAndFallback(t *testing.T) {
-	s := New(testConfigWithWiFi())
+	s := newTestServer(t)
+	s.cfg = testConfigWithWiFi()
 	req := httptest.NewRequest(http.MethodGet, "/share", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -68,7 +71,8 @@ func TestSharePageRendersURLAndFallback(t *testing.T) {
 }
 
 func TestShareQRPngServesImage(t *testing.T) {
-	s := New(testConfigWithWiFi())
+	s := newTestServer(t)
+	s.cfg = testConfigWithWiFi()
 	req := httptest.NewRequest(http.MethodGet, "/share/qr.png", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)

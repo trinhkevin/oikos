@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"homesite/internal/config"
+	"homesite/internal/store"
 	"homesite/internal/web"
 )
 
@@ -19,7 +20,13 @@ func main() {
 		log.Fatalf("loading config: %v", err)
 	}
 
-	srv := web.New(cfg)
+	db, err := store.Open(cfg.DataDir + "/homesite.db")
+	if err != nil {
+		log.Fatalf("opening database: %v", err)
+	}
+	defer db.Close()
+
+	srv := web.New(cfg, db)
 	log.Printf("Brivin Household listening on %s", cfg.Site.Listen)
 	if err := http.ListenAndServe(cfg.Site.Listen, srv); err != nil {
 		log.Fatalf("server error: %v", err)

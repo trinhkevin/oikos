@@ -8,7 +8,7 @@ import (
 )
 
 func TestWelcomePageRenders(t *testing.T) {
-	s := New(testConfig())
+	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -24,7 +24,7 @@ func TestWelcomePageRenders(t *testing.T) {
 }
 
 func TestCoffeeMenuPageRenders(t *testing.T) {
-	s := New(testConfig())
+	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/coffee", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -37,7 +37,7 @@ func TestCoffeeMenuPageRenders(t *testing.T) {
 }
 
 func TestCocktailsMenuPageRenders(t *testing.T) {
-	s := New(testConfig())
+	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/cocktails", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -50,7 +50,7 @@ func TestCocktailsMenuPageRenders(t *testing.T) {
 }
 
 func TestRefreshmentsPageRenders(t *testing.T) {
-	s := New(testConfig())
+	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/refreshments", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -68,7 +68,7 @@ func TestRefreshmentsPageRenders(t *testing.T) {
 // progress.md and task-4-report.md. These assertions target the real seed
 // content actually present under content/cats/.
 func TestCatsIndexPageRenders(t *testing.T) {
-	s := New(testConfig())
+	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/cats", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -81,7 +81,7 @@ func TestCatsIndexPageRenders(t *testing.T) {
 }
 
 func TestCatDetailPageRenders(t *testing.T) {
-	s := New(testConfig())
+	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/cats/farah", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
@@ -94,7 +94,7 @@ func TestCatDetailPageRenders(t *testing.T) {
 }
 
 func TestCatDetailPageUnknownSlugReturns404(t *testing.T) {
-	s := New(testConfig())
+	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/cats/no-such-cat", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
