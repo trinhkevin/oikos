@@ -3,7 +3,7 @@
 set -euo pipefail
 
 sudo apt update
-sudo apt install -y imagemagick restic
+sudo apt install -y imagemagick restic sqlite3
 
 # Reduce writes to the microSD card, which holds the OS, database, and
 # uploaded photos together (see spec: "the card is a consumable").

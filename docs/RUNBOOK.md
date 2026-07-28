@@ -42,4 +42,5 @@ Target: under an hour from dead card to working site.
 
 `GET /healthz` includes `last_backup`. If it's more than a day old (or
 `"never"`), SSH in and run `deploy/backup.sh` manually to see the error —
-most likely an expired B2 key or a full `/tmp`.
+most likely an expired B2 key, a full `/tmp`, or (if provisioning predates
+this fix) a missing `sqlite3` CLI reported as "command not found: sqlite3".
