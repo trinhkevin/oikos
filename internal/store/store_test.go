@@ -56,3 +56,22 @@ func TestOpenMemoryForTests(t *testing.T) {
 		t.Errorf("photos table not found in in-memory db: %v", err)
 	}
 }
+
+func TestOpenCreatesOAuthAndSongRequestTables(t *testing.T) {
+	dir := t.TempDir()
+	db, err := Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer db.Close()
+
+	for _, tbl := range []string{"oauth_tokens", "song_requests"} {
+		var name string
+		err := db.QueryRow(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name=?", tbl,
+		).Scan(&name)
+		if err != nil {
+			t.Errorf("table %s not found: %v", tbl, err)
+		}
+	}
+}

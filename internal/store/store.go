@@ -34,6 +34,27 @@ CREATE TABLE IF NOT EXISTS guestbook_entries (
   client_ip  TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_guestbook_created ON guestbook_entries(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS oauth_tokens (
+  provider      TEXT PRIMARY KEY,
+  refresh_token TEXT NOT NULL,
+  access_token  TEXT,
+  expires_at    TEXT,
+  scopes        TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS song_requests (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  track_uri    TEXT NOT NULL,
+  track_name   TEXT NOT NULL,
+  artist_name  TEXT NOT NULL,
+  requested_by TEXT,
+  created_at   TEXT NOT NULL,
+  client_ip    TEXT NOT NULL,
+  status       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_song_requests_created ON song_requests(created_at DESC);
 `
 
 // Open opens (creating if needed) a file-backed SQLite database in WAL
