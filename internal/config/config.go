@@ -33,10 +33,10 @@ type WiFiConfig struct {
 }
 
 type SpotifyConfig struct {
-	PlaylistURL  string `yaml:"playlist_url"`
-	ClientID     string `yaml:"client_id"`
-	ClientSecret string `yaml:"client_secret"`
-	CacheSeconds int    `yaml:"cache_seconds"`
+	ClientID               string `yaml:"client_id"`
+	ClientSecret           string `yaml:"client_secret"`
+	RedirectURI            string `yaml:"redirect_uri"`
+	NowPlayingCacheSeconds int    `yaml:"now_playing_cache_seconds"`
 }
 
 type PhotosConfig struct {
@@ -49,6 +49,7 @@ type PhotosConfig struct {
 type LimitsConfig struct {
 	GuestbookPerWindow    int `yaml:"guestbook_per_window"`
 	PhotoUploadsPerWindow int `yaml:"photo_uploads_per_window"`
+	SongRequestsPerWindow int `yaml:"song_requests_per_window"`
 	WindowMinutes         int `yaml:"window_minutes"`
 }
 

@@ -9,10 +9,10 @@ wifi:
   auth: WPA
   hidden: false
 spotify:
-  playlist_url: "https://open.spotify.com/playlist/abc123"
   client_id: "test-client-id"
   client_secret: "test-client-secret"
-  cache_seconds: 60
+  redirect_uri: "http://127.0.0.1:8080/spotify/callback"
+  now_playing_cache_seconds: 10
 photos:
   max_file_bytes: 26214400
   max_total_bytes: 85899345920
@@ -21,6 +21,7 @@ photos:
 limits:
   guestbook_per_window: 2
   photo_uploads_per_window: 30
+  song_requests_per_window: 3
   window_minutes: 15
 content_dir: "./content"
 data_dir: "./data"
