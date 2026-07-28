@@ -60,16 +60,21 @@ func (ing *Ingester) Ingest(ctx context.Context, r io.Reader, source, clientIP s
 	if err != nil {
 		return Photo{}, fmt.Errorf("photos: reading upload: %w", err)
 	}
-	if int64(len(buf)) > ing.cfg.MaxFileBytes {
-		return Photo{}, fmt.Errorf("photos: exceeds %d bytes: %w", ing.cfg.MaxFileBytes, ErrTooLarge)
-	}
 
+	// Sniff before the size check: a huge non-image upload should report
+	// "not an image," not "too large" — the size limit is a check on
+	// otherwise-legitimate images, not a substitute for sniffing.
 	sniffLen := min(len(buf), 512)
 	mimeType, ok := Sniff(buf[:sniffLen])
 	if !ok {
 		return Photo{}, fmt.Errorf("photos: unrecognized file type: %w", ErrNotAnImage)
 	}
+	if int64(len(buf)) > ing.cfg.MaxFileBytes {
+		return Photo{}, fmt.Errorf("photos: exceeds %d bytes: %w", ing.cfg.MaxFileBytes, ErrTooLarge)
+	}
 
+	// Size before the disk-cap walk: no reason to walk the whole uploads
+	// tree for a file that's already rejected.
 	used, err := ing.store.DiskUsageBytes(ing.uploadsDir)
 	if err != nil {
 		return Photo{}, fmt.Errorf("photos: checking disk usage: %w", err)

@@ -71,6 +71,22 @@ func TestIngestRejectsNonImage(t *testing.T) {
 	}
 }
 
+func TestIngestRejectsHugeNonImageAsNotAnImageNotTooLarge(t *testing.T) {
+	// The brief is explicit: sniff runs before the size check, so a huge
+	// non-image upload reports "not an image," never "too large" — the
+	// size limit is about image files, not an excuse to skip sniffing.
+	uploadsDir := t.TempDir()
+	cfg := testPhotosConfig()
+	cfg.MaxFileBytes = 8 // tiny, so the huge non-image definitely exceeds it too
+	ing := &Ingester{store: newTestStore(t), cfg: cfg, uploadsDir: uploadsDir, conv: &fakeConverter{}}
+
+	hugeNonImage := bytes.Repeat([]byte("not an image at all, just text"), 1000)
+	_, err := ing.Ingest(context.Background(), bytes.NewReader(hugeNonImage), "gallery", "192.168.1.20")
+	if !errors.Is(err, ErrNotAnImage) {
+		t.Fatalf("err = %v, want ErrNotAnImage (sniff must run before the size check)", err)
+	}
+}
+
 func TestIngestRejectsOversizedFile(t *testing.T) {
 	uploadsDir := t.TempDir()
 	cfg := testPhotosConfig()
