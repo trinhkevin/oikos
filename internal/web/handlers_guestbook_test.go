@@ -56,11 +56,23 @@ func TestGuestbookCreateRejectsEmptyMessagePreservingName(t *testing.T) {
 		t.Fatalf("status = %d, want 200 (validation error still renders a fragment)", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Jamie") {
-		t.Error("expected the typed name to be preserved after a validation error")
+	// value="Jamie" specifically (not just "Jamie" appearing anywhere,
+	// which a successfully-created entry's rendered name would also
+	// satisfy) — this can only come from the form's preserved input
+	// attribute on the validation-failure branch.
+	if !strings.Contains(body, `value="Jamie"`) {
+		t.Errorf("body = %q, want the typed name preserved as a form field value (value=\"Jamie\")", body)
 	}
-	if !strings.Contains(body, "message") {
-		t.Error("expected an inline message-required error")
+	// The exact validation error text, not just the substring "message"
+	// (which the textarea's own name="message" attribute would also
+	// satisfy on the success path).
+	if !strings.Contains(body, "please enter a message") {
+		t.Errorf("body = %q, want the specific message-required error text", body)
+	}
+	// This fragment must be the form itself re-rendered, not a new
+	// guestbook entry — the success path never contains this element.
+	if !strings.Contains(body, `id="guestbook-form"`) {
+		t.Errorf("body = %q, want the guestbook form fragment, not an entry", body)
 	}
 }
 

@@ -33,6 +33,34 @@ func TestMusicSearchWithEmptyQueryReturnsNoResults(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
+	body := rec.Body.String()
+	// "didn't panic" would satisfy a bare 200 check — assert the
+	// handler actually took the empty-query branch (no Spotify call,
+	// SearchResults(nil)'s empty-state copy) rather than e.g. crashing
+	// into some other fragment or silently calling Spotify anyway.
+	if !strings.Contains(body, "No matches") {
+		t.Errorf("body = %q, want the empty-results message for an empty query", body)
+	}
+	if strings.Contains(body, `hx-post="/music/request"`) {
+		t.Errorf("body = %q, want no track-result forms for an empty query", body)
+	}
+}
+
+// TestMusicSearchWithSingleCharQueryReturnsNoResults proves the
+// minimum-length guard (item 7's fix) also short-circuits a 1-character
+// query — the realistic case for a debounced keyup firing on the first
+// keystroke — not just a fully empty one.
+func TestMusicSearchWithSingleCharQueryReturnsNoResults(t *testing.T) {
+	s := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/music/search?q=a", nil)
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "No matches") {
+		t.Errorf("body = %q, want the empty-results message for a 1-character query", rec.Body.String())
+	}
 }
 
 // TestMusicRequestRejectsOverlongTrackName proves a guest sees a sensible
