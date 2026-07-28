@@ -6266,44 +6266,87 @@ running:
 
 Every prior task built structurally complete, functionally correct pages with minimal styling (Task 7's `site.css` covers layout mechanics: cards, the menu overlay, tap targets, QR-page dark-mode lock). The spec deliberately defers real visual execution to this point: *"Detailed visual execution is deferred to implementation, where the `frontend-design` skill applies."* This task is that pass, across all ten pages at once so the site reads as one designed system rather than ten separately-styled pages.
 
-**This task now also acquires the Butler headline font**, added to the spec after Task 7 shipped with Lora alone. Butler is a free, high-contrast display serif (Fabian De Smet) — used for headlines only, never body text, where its thin hairlines would hurt readability. Lora remains exactly as Task 7 wired it, carrying every other block of text on the page.
+**This task now also acquires the Fraunces headline font**, added to the spec after Task 7 shipped with Lora alone. Fraunces is a free, high-contrast display serif on Google Fonts — used for headlines only, never body text, where its thin hairlines would hurt readability. Lora remains exactly as Task 7 wired it, carrying every other block of text on the page.
+
+**Fraunces uses the exact same acquisition method Task 7 already proved out for Lora** — per-weight `fonts.googleapis.com/css2` queries, each requested in isolation to avoid the mislabeled-weight bug Task 7's fix round caught (combining multiple weights in one query can silently return one weight's file mislabeled as another). No new acquisition risk here: same method, same license family (SIL OFL, Google Fonts), no third-party foundry site, no license-file ambiguity to resolve.
 
 **Files:**
 - Modify: `static/css/site.css`
 - Modify: any `views/*.templ` files whose markup needs additional structure to support the new visual design (e.g., wrapping elements for imagery treatments)
-- Create: `static/fonts/Butler-Black.woff2` (or whichever weight the design settles on for display headings — Black or Extra Bold are the two heaviest cuts in the free family), `static/fonts/Butler-LICENSE.txt`
+- Create: `static/fonts/Fraunces-Black.woff2`, `static/fonts/Fraunces-LICENSE.txt`
 
 **Interfaces:**
 - Consumes: every page and component from Tasks 7, 9, 10, 14, 15, 17
 - Produces: no new interfaces — this task changes appearance, not behavior. Every test from Tasks 1–17 must still pass unmodified afterward, since none of them assert on CSS or visual layout.
 
-- [ ] **Step 1: Acquire Butler**
+- [ ] **Step 1: Acquire Fraunces at weight 900 (Black)**
 
-Download from [Font Squirrel](https://www.fontsquirrel.com/fonts/butler) or [the designer's own site](https://www.fabiandesmet.com/portfolio/butler-font/) — both distribute genuine woff2 files directly, no TTF-to-woff2 conversion needed (unlike Lora's acquisition in Task 7, which needed the per-weight `css2` API workaround). Pick one heavy display weight (Black or Extra Bold) for headlines; the free family also ships Regular through Ultra Light and a parallel stencil line, none of which this design needs.
+Use the same per-weight-isolation method Task 7 used for Lora — do not combine multiple weights in one query, since that's the exact bug Task 7's fix round found (a combined query can silently return one weight's file mislabeled as another):
 
-**Read the bundled license file before shipping it** — different distribution channels frame Butler's terms differently (the designer's own site describes it loosely as "free for commercial use"; some mirrors attach formal CC BY-SA 4.0 terms, which technically requires attribution and share-alike). Save whichever license file the actual downloaded zip contains as `static/fonts/Butler-LICENSE.txt`, and if it turns out to be CC BY-SA, add a one-line attribution credit somewhere reasonable (a site footer or an `ABOUT` note) — costs nothing, closes the gap between the two framings.
+```bash
+UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-Place the woff2 file at `static/fonts/Butler-Black.woff2` (adjust the name to match whichever weight was actually downloaded).
+curl -s -H "User-Agent: $UA" "https://fonts.googleapis.com/css2?family=Fraunces:wght@900&display=swap" -o /tmp/fraunces-black.css
+
+python3 -c "
+import re
+css = open('/tmp/fraunces-black.css').read()
+for b in css.split('@font-face')[1:]:
+    if 'U+0000-00FF, U+0131' in b:  # latin subset marker
+        print(re.search(r'url\(([^)]+)\)', b).group(1))
+        break
+"
+```
+
+That prints a `fonts.gstatic.com` woff2 URL for the Latin subset at weight 900 — download it:
+
+```bash
+mkdir -p static/fonts
+curl -s "$(python3 -c "
+import re
+css = open('/tmp/fraunces-black.css').read()
+for b in css.split('@font-face')[1:]:
+    if 'U+0000-00FF, U+0131' in b:
+        print(re.search(r'url\(([^)]+)\)', b).group(1))
+        break
+")" -o static/fonts/Fraunces-Black.woff2
+```
+
+**Verify the actual weight before moving on** (this is the check that would catch the Task 7-class bug):
+```bash
+python3 -c "
+from fontTools.ttLib import TTFont
+got = TTFont('static/fonts/Fraunces-Black.woff2')['OS/2'].usWeightClass
+print('usWeightClass:', got, 'OK' if got == 900 else 'MISMATCH -- do not proceed')
+"
+```
+
+Fetch the license (Fraunces is SIL OFL, same as Lora — no ambiguity to resolve, unlike a third-party foundry font):
+```bash
+curl -s "https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/OFL.txt" -o static/fonts/Fraunces-LICENSE.txt
+head -1 static/fonts/Fraunces-LICENSE.txt
+```
+
+Clean up the scratch CSS file (`rm /tmp/fraunces-black.css`) once done.
 
 - [ ] **Step 2: Invoke the frontend-design skill with the spec's visual brief**
 
 Invoke `frontend-design` with this brief, derived directly from the spec's Visual Direction section:
 
-> Design pass for "Brivin Household," a mobile-first home party site (ten pages: Welcome, Wi-Fi, Coffee Menu, Cocktail Menu, Refreshments, Music Requests, Upload Photos, Guest Book, Meet the Cats, Share). Two typefaces, both self-hosted as woff2: **Butler** (a high-contrast display serif) for headlines only — large scale jumps between heading levels, tight negative tracking, used at 24px and up, never for body copy since its hairlines hurt readability at small sizes — and **Lora** (already wired in `static/css/site.css` from an earlier pass) carrying every other block of text: menu items, cat bios, guest book entries, form labels, navigation. The personality should come from this pairing and from typographic decisions, not from either font alone: a restrained palette (warm off-white ground, near-black ink, one saturated accent color — currently a rust/terracotta placeholder), generous whitespace, a single-column measure capped around 60 characters, and full-bleed imagery (cat photos, gallery thumbnails) contrasted against tight text blocks. Layouts are designed at 390px width first and allowed to breathe on larger screens — every tap target at least 44px, used one-handed, standing up, in imperfect lighting. Honor `prefers-color-scheme` dark mode everywhere **except** the two QR pages (Wi-Fi, Share — Music is no longer a QR page, it works entirely within the site), which are hard-locked to a white background regardless of viewer theme — that lock already exists in `site.css` via the `.qr-page` class and must not be loosened. The vibe the site's owner asked for is "hip and trendy" — lean into confident display typography for headlines and a considered accent color rather than generic Bootstrap-y defaults.
+> Design pass for "Brivin Household," a mobile-first home party site (ten pages: Welcome, Wi-Fi, Coffee Menu, Cocktail Menu, Refreshments, Music Requests, Upload Photos, Guest Book, Meet the Cats, Share). Two typefaces, both self-hosted as woff2: **Fraunces** at weight 900/Black (a high-contrast variable serif, closer to a Canela-like editorial-fashion register than Lora alone) for headlines only — large scale jumps between heading levels, tight negative tracking, used at 24px and up, never for body copy since its hairlines hurt readability at small sizes — and **Lora** (already wired in `static/css/site.css` from an earlier pass) carrying every other block of text: menu items, cat bios, guest book entries, form labels, navigation. The personality should come from this pairing and from typographic decisions, not from either font alone: a restrained palette (warm off-white ground, near-black ink, one saturated accent color — currently a rust/terracotta placeholder), generous whitespace, a single-column measure capped around 60 characters, and full-bleed imagery (cat photos, gallery thumbnails) contrasted against tight text blocks. Layouts are designed at 390px width first and allowed to breathe on larger screens — every tap target at least 44px, used one-handed, standing up, in imperfect lighting. Honor `prefers-color-scheme` dark mode everywhere **except** the two QR pages (Wi-Fi, Share — Music is no longer a QR page, it works entirely within the site), which are hard-locked to a white background regardless of viewer theme — that lock already exists in `site.css` via the `.qr-page` class and must not be loosened. The vibe the site's owner asked for is "hip and trendy" — lean into confident display typography for headlines and a considered accent color rather than generic Bootstrap-y defaults.
 
-- [ ] **Step 3: Wire the `@font-face` rule for Butler**
+- [ ] **Step 3: Wire the `@font-face` rule for Fraunces**
 
 Add to `static/css/site.css`, alongside the existing Lora `@font-face` blocks from Task 7:
 ```css
 @font-face {
-	font-family: "Butler";
-	src: url("/static/fonts/Butler-Black.woff2") format("woff2");
+	font-family: "Fraunces";
+	src: url("/static/fonts/Fraunces-Black.woff2") format("woff2");
 	font-weight: 900;
 	font-style: normal;
 	font-display: swap;
 }
 ```
-(adjust `font-weight` and the filename to match whichever cut was actually downloaded in Step 1)
 
 - [ ] **Step 4: Apply the resulting design to `static/css/site.css` and any `views/*.templ` markup it requires**
 
@@ -6320,13 +6363,13 @@ Expected: PASS for every test written in Tasks 1–17. If a test fails, it means
 
 - [ ] **Step 6: Review the redesigned site on a real phone, page by page**
 
-Run `go run ./cmd/homesite -config config.local.yaml` and open every one of the ten routes on a phone at `http://<mac-ip>:8080/`. Specifically re-check the two QR pages (Wi-Fi, Share) still scan correctly and still show a white background regardless of the phone's system dark-mode setting — a design pass is exactly the kind of change that could accidentally regress that lock. Also confirm Butler renders only on headings, never on paragraph-length text, and that it actually loaded (a fallback to the body serif on every heading usually means a wrong path or font-weight mismatch between the `@font-face` rule and wherever the design applies `font-family: "Butler"`).
+Run `go run ./cmd/homesite -config config.local.yaml` and open every one of the ten routes on a phone at `http://<mac-ip>:8080/`. Specifically re-check the two QR pages (Wi-Fi, Share) still scan correctly and still show a white background regardless of the phone's system dark-mode setting — a design pass is exactly the kind of change that could accidentally regress that lock. Also confirm Fraunces renders only on headings, never on paragraph-length text, and that it actually loaded (a fallback to the body serif on every heading usually means a wrong path or font-weight mismatch between the `@font-face` rule and wherever the design applies `font-family: "Fraunces"`).
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add static views
-git commit -m "Apply visual design pass: Butler headlines, Lora body, palette, and imagery treatment"
+git commit -m "Apply visual design pass: Fraunces headlines, Lora body, palette, and imagery treatment"
 ```
 
 ---

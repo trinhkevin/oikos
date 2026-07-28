@@ -107,7 +107,7 @@ no TLS. The Go binary binds `:80` directly, running as a non-root user with
 | Markdown | `goldmark` | Cat biographies. |
 | QR | `github.com/skip2/go-qrcode` | WiFi and site QRs. |
 | Config | `gopkg.in/yaml.v3` | Content files and `config.yaml`. |
-| Fonts | Butler (free, Fabian De Smet) for headlines; Lora (SIL OFL) for body — both self-hosted `woff2` | See Visual direction. |
+| Fonts | Fraunces (SIL OFL) at weight 900 for headlines; Lora (SIL OFL) for body — both self-hosted `woff2`, both Google Fonts | See Visual direction. |
 
 Pi packages: `apt install imagemagick libheif-examples restic`.
 
@@ -117,18 +117,21 @@ Pi packages: `apt install imagemagick libheif-examples restic`.
 on larger screens, rather than desktop layouts squeezed down. Every interactive target is
 at least 44px. The site is used one-handed, standing up, slightly drunk, in bad lighting.
 
-**Butler** for headlines, **Lora** for body — both self-hosted as `woff2`, subset to Latin.
-Butler is a high-contrast display serif (Fabian De Smet, free for commercial use — the
-bundled license file must be checked on download, since third-party mirrors attach CC
-BY-SA 4.0 terms while the designer's own site describes it more loosely; keep whichever
-license file ships in the download alongside the font, and add an attribution line if it
-turns out to be CC BY-SA). Butler is built for large display sizes only — its hairlines
-disappear and readability suffers at body-copy sizes, so it is never used below a heading
-threshold (roughly 24px and up). Lora carries every other text on the page: menu items, cat
-bios, guest book entries, form labels. Lora is warmer and lower-contrast than a Didone — it
-reads editorial-cozy rather than fashion-austere, which suits a household and pairs well
-under a bolder display face. To keep the pairing from reading as a default blog theme, the
-personality comes from typographic decisions as much as the fonts themselves:
+**Fraunces** for headlines, **Lora** for body — both self-hosted as `woff2`, subset to Latin,
+both genuinely free (SIL Open Font License, Google Fonts — no license ambiguity to check,
+unlike a font sourced from a third-party foundry site). Fraunces is a high-contrast variable
+serif with real display weight (used here at 900/Black) — closer to a Canela-like editorial
+fashion register than Lora alone, which is why it carries headlines while Lora stays on body
+text. (Instrument Serif was considered as a Canela-adjacent alternative but rejected: it
+ships only a single weight — Regular and Italic, no Bold — which can't carry "genuinely
+display, no timid headings" on its own.) Fraunces is built for large display sizes only —
+its high contrast and thin hairlines hurt readability at body-copy sizes, so it is never
+used below a heading threshold (roughly 24px and up). Lora carries every other text on the
+page: menu items, cat bios, guest book entries, form labels. Lora is warmer and
+lower-contrast than a Didone — it reads editorial-cozy rather than fashion-austere, which
+suits a household and pairs well under a bolder display face. To keep the pairing from
+reading as a default blog theme, the personality comes from typographic decisions as much
+as the fonts themselves:
 
 - Large scale jumps between levels — display sizes genuinely display, no timid `1.2rem`
   headings
@@ -447,7 +450,7 @@ homesite/
   internal/qr/                SVG render; WiFi and URL payload builders
   internal/web/               routes, handlers, templ components
   views/                      .templ files
-  static/                     CSS, htmx.min.js, Butler + Lora woff2 (go:embed)
+  static/                     CSS, htmx.min.js, Fraunces + Lora woff2 (go:embed)
   deploy/homesite.service
   deploy/backup.sh
   docs/RUNBOOK.md             SD card failure recovery
