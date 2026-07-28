@@ -1,7 +1,10 @@
 // views/guestbook.templ
 package views
 
-import "homesite/internal/guestbook"
+import (
+	"homesite/internal/guestbook"
+	"homesite/internal/photos"
+)
 
 type GuestbookFormError struct {
 	Message  string
@@ -9,11 +12,20 @@ type GuestbookFormError struct {
 	Message_ string
 }
 
-templ GuestbookPage(entries []guestbook.Entry) {
+// GuestbookEntryView pairs a guest book entry with its linked photo (if
+// any) — guestbook.Store.List only returns the bare PhotoID, so the
+// handler enriches it with a second lookup before rendering, the same
+// way views/photos.templ's gallery renders Photo.Path/Photo.ThumbPath.
+type GuestbookEntryView struct {
+	Entry guestbook.Entry
+	Photo *photos.Photo
+}
+
+templ GuestbookPage(entries []GuestbookEntryView) {
 	@Layout("Guest Book", HeaderStandard, guestbookPageBody(entries, nil))
 }
 
-templ guestbookPageBody(entries []guestbook.Entry, formErr *GuestbookFormError) {
+templ guestbookPageBody(entries []GuestbookEntryView, formErr *GuestbookFormError) {
 	<h1>Guest Book</h1>
 	@GuestbookForm(formErr)
 	<div id="guestbook-rl-message"></div>
@@ -23,7 +35,7 @@ templ guestbookPageBody(entries []guestbook.Entry, formErr *GuestbookFormError) 
 }
 
 templ GuestbookForm(formErr *GuestbookFormError) {
-	<form hx-post="/guestbook" hx-target="#guestbook-entries" hx-swap="afterbegin" id="guestbook-form">
+	<form hx-post="/guestbook" hx-encoding="multipart/form-data" hx-target="#guestbook-entries" hx-swap="afterbegin" id="guestbook-form">
 		<label>
 			Name
 			<input type="text" name="name" maxlength="40" required
@@ -39,6 +51,10 @@ templ GuestbookForm(formErr *GuestbookFormError) {
 				}
 			</textarea>
 		</label>
+		<label>
+			Photo (optional)
+			<input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/heic"/>
+		</label>
 		if formErr != nil {
 			<p class="form-error">{ formErr.Message }</p>
 		}
@@ -46,11 +62,16 @@ templ GuestbookForm(formErr *GuestbookFormError) {
 	</form>
 }
 
-templ GuestbookEntries(entries []guestbook.Entry) {
-	for _, e := range entries {
+templ GuestbookEntries(entries []GuestbookEntryView) {
+	for _, ev := range entries {
 		<article class="guestbook-entry">
-			<p class="guestbook-name">{ e.Name }</p>
-			<p class="guestbook-message">{ e.Message }</p>
+			<p class="guestbook-name">{ ev.Entry.Name }</p>
+			<p class="guestbook-message">{ ev.Entry.Message }</p>
+			if ev.Photo != nil {
+				<a href={ templ.URL("/uploads/" + ev.Photo.Path) } class="photo-thumb">
+					<img src={ "/uploads/" + ev.Photo.ThumbPath } alt="Guest book photo" loading="lazy"/>
+				</a>
+			}
 		</article>
 	}
 }
