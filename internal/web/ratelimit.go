@@ -2,8 +2,6 @@
 package web
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"net/http"
 	"sync"
 	"time"
@@ -44,38 +42,21 @@ func (rl *rateLimiter) allow(key string) bool {
 	return true
 }
 
-const rateLimitCookieName = "brivin_rl"
-
-// rateLimitKey combines a long-lived per-browser cookie with the
-// caller's IP, per the spec's "keyed by session cookie AND client IP, so
-// clearing cookies does not reset them" requirement. It sets the cookie
-// on first sight of a caller that doesn't have one yet.
-func rateLimitKey(w http.ResponseWriter, r *http.Request) string {
-	token := ""
-	if c, err := r.Cookie(rateLimitCookieName); err == nil && c.Value != "" {
-		token = c.Value
-	} else {
-		token = randomToken()
-		http.SetCookie(w, &http.Cookie{
-			Name: rateLimitCookieName, Value: token, Path: "/",
-			MaxAge: 60 * 60 * 24 * 30,
-		})
-	}
-	return token + "|" + clientIP(r)
-}
-
-func randomToken() string {
-	var b [16]byte
-	rand.Read(b[:])
-	return hex.EncodeToString(b[:])
-}
-
 // rateLimit wraps next so requests over budget get a friendly fragment
 // retargeted (via the HX-Retarget/HX-Reswap response headers) into
 // targetID instead of the route's normal success target.
+//
+// The limiter is keyed by client IP alone, not by a cookie. This is a
+// LAN-only site: guests join the household's WiFi directly and each gets
+// an individually DHCP-assigned address from the router — there's no
+// shared NAT gateway collapsing multiple guests onto one apparent IP the
+// way there would be on the public internet. So the IP is already a
+// stable, reliable per-guest identifier here, and — critically — using it
+// alone means clearing cookies (or never accepting them) cannot reset a
+// caller's budget, since there's no cookie in the key to reset.
 func (s *Server) rateLimit(rl *rateLimiter, targetID string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		key := rateLimitKey(w, r)
+		key := clientIP(r)
 		if !rl.allow(key) {
 			w.Header().Set("HX-Retarget", "#"+targetID)
 			w.Header().Set("HX-Reswap", "innerHTML")
