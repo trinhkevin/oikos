@@ -72,7 +72,7 @@ func musicBody(nowPlaying *spotify.Track, nowPlayingErr bool, recent []spotify.S
 				return templ_7745c5c3_Err
 			}
 		} else if nowPlaying == nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<p class=\"quiet-note\">Nothing's playing yet.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<p class=\"quiet-note\">Nothing's playing yet — ask the host to start the music 🎵</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

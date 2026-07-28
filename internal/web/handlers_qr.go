@@ -2,7 +2,6 @@
 package web
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -11,8 +10,7 @@ import (
 )
 
 func (s *Server) handleWiFiPage(w http.ResponseWriter, r *http.Request) {
-	primary := fmt.Sprintf("%s / %s", s.cfg.WiFi.SSID, s.cfg.WiFi.Password)
-	render(w, r, views.QRPage("Wi-Fi", "/wifi/qr.png", primary, ""))
+	render(w, r, views.WiFiQRPage("/wifi/qr.png", "Wi-Fi QR code", s.cfg.WiFi.SSID, s.cfg.WiFi.Password))
 }
 
 func (s *Server) handleWiFiQRPng(w http.ResponseWriter, r *http.Request) {
@@ -21,7 +19,7 @@ func (s *Server) handleWiFiQRPng(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSharePage(w http.ResponseWriter, r *http.Request) {
-	render(w, r, views.QRPage("Share", "/share/qr.png", s.cfg.Site.URL, s.cfg.Site.FallbackURL))
+	render(w, r, views.QRPage("Share", "/share/qr.png", "Share QR code", s.cfg.Site.URL, s.cfg.Site.FallbackURL))
 }
 
 func (s *Server) handleShareQRPng(w http.ResponseWriter, r *http.Request) {

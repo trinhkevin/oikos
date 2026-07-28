@@ -13,7 +13,7 @@ templ musicBody(nowPlaying *spotify.Track, nowPlayingErr bool, recent []spotify.
 		if nowPlayingErr {
 			<p class="quiet-note">Can't reach Spotify right now.</p>
 		} else if nowPlaying == nil {
-			<p class="quiet-note">Nothing's playing yet.</p>
+			<p class="quiet-note">Nothing's playing yet — ask the host to start the music 🎵</p>
 		} else {
 			<p>Now playing: <strong>{ nowPlaying.Name }</strong> — { nowPlaying.Artists }</p>
 		}

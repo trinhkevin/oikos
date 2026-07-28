@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	"homesite/internal/config"
 	"homesite/internal/store"
@@ -20,7 +21,7 @@ func main() {
 		log.Fatalf("loading config: %v", err)
 	}
 
-	db, err := store.Open(cfg.DataDir + "/homesite.db")
+	db, err := store.Open(filepath.Join(cfg.DataDir, "homesite.db"))
 	if err != nil {
 		log.Fatalf("opening database: %v", err)
 	}

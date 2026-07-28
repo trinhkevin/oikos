@@ -73,7 +73,7 @@ func (s *RequestStore) Insert(ctx context.Context, r SongRequest) (int64, error)
 func (s *RequestStore) Recent(ctx context.Context, limit int) ([]SongRequest, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, track_uri, track_name, artist_name, requested_by, created_at, client_ip, status
-		FROM song_requests WHERE status = 'queued' ORDER BY created_at DESC LIMIT ?`, limit,
+		FROM song_requests WHERE status = 'queued' ORDER BY created_at DESC, id DESC LIMIT ?`, limit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("spotify: listing recent requests: %w", err)

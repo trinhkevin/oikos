@@ -37,7 +37,7 @@ func (s *SQLTokenStore) SaveTokens(ctx context.Context, refreshToken string, upd
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO oauth_tokens (provider, refresh_token, scopes, updated_at)
 		VALUES ('spotify', ?, ?, ?)
-		ON CONFLICT(provider) DO UPDATE SET refresh_token = excluded.refresh_token, updated_at = excluded.updated_at`,
+		ON CONFLICT(provider) DO UPDATE SET refresh_token = excluded.refresh_token, scopes = excluded.scopes, updated_at = excluded.updated_at`,
 		refreshToken, Scopes, updatedAt.Format(time.RFC3339),
 	)
 	if err != nil {

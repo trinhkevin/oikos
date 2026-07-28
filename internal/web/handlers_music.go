@@ -26,9 +26,16 @@ func (s *Server) handleMusicPage(w http.ResponseWriter, r *http.Request) {
 	render(w, r, views.MusicPage(nowPlaying, nowPlayingErr, recent))
 }
 
+// minSearchQueryLength guards against firing a Spotify search on every
+// keystroke of a 300ms debounce: a single guest typing generates a
+// burst of near-useless 0-1 character queries that would otherwise all
+// reach the API. There's no rate limit or minimum-length guard on this
+// route today, so this is the cheap mitigation for most of that risk.
+const minSearchQueryLength = 2
+
 func (s *Server) handleMusicSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	if q == "" {
+	if len(q) < minSearchQueryLength {
 		render(w, r, views.SearchResults(nil))
 		return
 	}

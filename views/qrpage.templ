@@ -1,17 +1,34 @@
 // views/qrpage.templ
 package views
 
-templ QRPage(title, qrSrc, primaryText, fallbackText string) {
-	@Layout(title, HeaderQR, qrPageBody(title, qrSrc, primaryText, fallbackText))
+// QRPage renders a single-value QR page (the Share page: one URL, plus
+// an optional resolver-bypass fallback line). WiFiQRPage is the
+// dedicated Wi-Fi variant, since SSID and password are two distinct
+// values that must not be concatenated into one ambiguous string.
+templ QRPage(title, qrSrc, altText, primaryText, fallbackText string) {
+	@Layout(title, HeaderQR, qrPageBody(title, qrSrc, altText, primaryText, fallbackText))
 }
 
-templ qrPageBody(title, qrSrc, primaryText, fallbackText string) {
+templ qrPageBody(title, qrSrc, altText, primaryText, fallbackText string) {
 	<h1 class="qr-title">{ title }</h1>
 	<div class="qr-card">
-		<img src={ qrSrc } alt="QR code" width="320" height="320"/>
+		<img src={ qrSrc } alt={ altText } width="320" height="320"/>
 		<p class="qr-primary-text">{ primaryText }</p>
 		if fallbackText != "" {
 			<p class="qr-fallback-text">{ fallbackText }</p>
 		}
+	</div>
+}
+
+templ WiFiQRPage(qrSrc, altText, ssid, password string) {
+	@Layout("Wi-Fi", HeaderQR, wifiQRPageBody(qrSrc, altText, ssid, password))
+}
+
+templ wifiQRPageBody(qrSrc, altText, ssid, password string) {
+	<h1 class="qr-title">Wi-Fi</h1>
+	<div class="qr-card">
+		<img src={ qrSrc } alt={ altText } width="320" height="320"/>
+		<p class="qr-primary-text">Network: { ssid }</p>
+		<p class="qr-primary-text">Password: { password }</p>
 	</div>
 }
