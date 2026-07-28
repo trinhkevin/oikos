@@ -1,0 +1,10 @@
+# deploy/homesite-backup.timer
+[Unit]
+Description=Run Brivin Household backup nightly
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

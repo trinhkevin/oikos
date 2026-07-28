@@ -1,4 +1,4 @@
-.PHONY: dev build deploy test
+.PHONY: dev test build deploy
 
 dev:
 	templ generate --watch &
@@ -14,3 +14,5 @@ build:
 deploy: build
 	scp homesite pi@192.168.1.50:/srv/homesite/homesite
 	ssh pi@192.168.1.50 'sudo systemctl restart homesite'
+	@echo "Binary deployed and service restarted."
+	@echo "First-time setup only: see docs/RUNBOOK.md steps 2-6 for provisioning, config, and systemd units."

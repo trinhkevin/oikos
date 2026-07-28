@@ -1,0 +1,8 @@
+# deploy/homesite-backup.service
+[Unit]
+Description=Brivin Household nightly backup
+
+[Service]
+Type=oneshot
+EnvironmentFile=/srv/homesite/backup.env
+ExecStart=/srv/homesite/deploy/backup.sh

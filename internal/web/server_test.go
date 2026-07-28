@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,6 +28,16 @@ func newTestServer(t *testing.T) *Server {
 	}
 	t.Cleanup(func() { db.Close() })
 	return New(testConfig(), db)
+}
+
+func mustOpenMemoryDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := store.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return db
 }
 
 func TestHealthzReturnsOK(t *testing.T) {
