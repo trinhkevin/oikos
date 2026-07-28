@@ -1,0 +1,174 @@
+/* static/css/site.css */
+@font-face {
+	font-family: "Lora";
+	src: url("/static/fonts/Lora-Regular.woff2") format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Lora";
+	src: url("/static/fonts/Lora-Bold.woff2") format("woff2");
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Lora";
+	src: url("/static/fonts/Lora-Italic.woff2") format("woff2");
+	font-weight: 400;
+	font-style: italic;
+	font-display: swap;
+}
+
+:root {
+	--ink: #2b2420;
+	--ground: #f7f1e8;
+	--accent: #b3552f;
+	--card-bg: #ffffff;
+	--measure: 60ch;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ink: #f1e9dc;
+		--ground: #201a16;
+		--accent: #e08a5c;
+		--card-bg: #2a231d;
+	}
+}
+
+/* The three QR pages (Wi-Fi, Music, Share) lock to light mode: an
+   inverted QR fails to scan on many camera apps. */
+html.qr-page {
+	color-scheme: light only;
+}
+html.qr-page body {
+	background: #ffffff;
+	color: #111111;
+}
+
+* { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	font-family: "Lora", Georgia, serif;
+	background: var(--ground);
+	color: var(--ink);
+	line-height: 1.5;
+}
+
+.site-header {
+	position: sticky;
+	top: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.75rem 1rem;
+	background: var(--ground);
+	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+	z-index: 10;
+}
+
+.site-title {
+	font-weight: 700;
+	font-size: 1.1rem;
+	letter-spacing: -0.01em;
+	color: var(--ink);
+	text-decoration: none;
+}
+
+main {
+	max-width: var(--measure);
+	margin: 0 auto;
+	padding: 1.5rem 1rem 4rem;
+}
+
+.card-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 0.75rem;
+}
+@media (min-width: 480px) {
+	.card-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.nav-card {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	padding: 1.25rem;
+	min-height: 44px;
+	border-radius: 0.75rem;
+	background: var(--card-bg);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	text-decoration: none;
+	color: var(--ink);
+}
+.nav-card-title {
+	font-weight: 700;
+	font-size: 1.1rem;
+}
+.nav-card-blurb {
+	font-size: 0.9rem;
+	opacity: 0.75;
+}
+
+.menu-toggle-input { display: none; }
+.menu-toggle-button {
+	font-size: 1.5rem;
+	cursor: pointer;
+	padding: 0.5rem;
+	min-width: 44px;
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.menu-overlay {
+	position: fixed;
+	inset: 0;
+	background: var(--ground);
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: 2rem;
+	gap: 1rem;
+	transform: translateY(-100%);
+	transition: transform 0.2s ease;
+	z-index: 20;
+}
+.menu-toggle-input:checked ~ .menu-overlay {
+	transform: translateY(0);
+}
+.menu-overlay-close {
+	align-self: flex-end;
+	font-size: 1.5rem;
+	cursor: pointer;
+	min-width: 44px;
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.menu-overlay-list {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	font-size: 1.3rem;
+}
+.menu-overlay-list a {
+	color: var(--ink);
+	text-decoration: none;
+	font-weight: 700;
+}
+
+.qr-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1rem;
+	text-align: center;
+}
+.qr-card img { max-width: 320px; width: 100%; height: auto; }
+.qr-fallback-text { font-size: 0.85rem; opacity: 0.7; }

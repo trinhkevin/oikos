@@ -1,8 +1,11 @@
 module homesite
 
-go 1.23
+go 1.23.0
+
+toolchain go1.24.5
 
 require (
+	github.com/a-h/templ v0.3.920
 	github.com/adrg/frontmatter v0.2.0
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0

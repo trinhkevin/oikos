@@ -1,0 +1,44 @@
+package views
+
+type NavItem struct {
+	Title string
+	Href  string
+	Blurb string
+}
+
+var NavItems = []NavItem{
+	{Title: "Wi-Fi", Href: "/wifi", Blurb: "Join the network"},
+	{Title: "Coffee Menu", Href: "/coffee", Blurb: "Current coffee drinks"},
+	{Title: "Cocktail Menu", Href: "/cocktails", Blurb: "Current cocktails"},
+	{Title: "Refreshments", Href: "/refreshments", Blurb: "Snacks and food"},
+	{Title: "Music Requests", Href: "/music", Blurb: "Add a song to the playlist"},
+	{Title: "Upload Photos", Href: "/photos", Blurb: "Share your shots"},
+	{Title: "Guest Book", Href: "/guestbook", Blurb: "Leave a note"},
+	{Title: "Meet the Cats", Href: "/cats", Blurb: "Say hello"},
+	{Title: "Share", Href: "/share", Blurb: "Pass the site along"},
+}
+
+templ CardGrid(items []NavItem) {
+	<div class="card-grid">
+		for _, item := range items {
+			<a class="nav-card" href={ templ.URL(item.Href) }>
+				<span class="nav-card-title">{ item.Title }</span>
+				<span class="nav-card-blurb">{ item.Blurb }</span>
+			</a>
+		}
+	</div>
+}
+
+templ MenuOverlay(items []NavItem) {
+	<input type="checkbox" id="menu-toggle" class="menu-toggle-input"/>
+	<label for="menu-toggle" class="menu-toggle-button" aria-label="Open menu">☰</label>
+	<div class="menu-overlay">
+		<label for="menu-toggle" class="menu-overlay-close" aria-label="Close menu">✕</label>
+		<nav class="menu-overlay-list">
+			<a href="/">Welcome</a>
+			for _, item := range items {
+				<a href={ templ.URL(item.Href) }>{ item.Title }</a>
+			}
+		</nav>
+	</div>
+}

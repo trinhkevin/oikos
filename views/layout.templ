@@ -1,0 +1,32 @@
+package views
+
+type HeaderVariant int
+
+const (
+	HeaderStandard HeaderVariant = iota
+	HeaderQR
+)
+
+templ Layout(title string, variant HeaderVariant, body templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en" class={ templ.KV("qr-page", variant == HeaderQR) }>
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title } — Brivin Household</title>
+			<link rel="stylesheet" href="/static/css/site.css"/>
+			<script src="/static/htmx.min.js"></script>
+		</head>
+		<body>
+			<header class="site-header">
+				<a class="site-title" href="/">Brivin Household</a>
+				if variant == HeaderStandard {
+					@MenuOverlay(NavItems)
+				}
+			</header>
+			<main>
+				@body
+			</main>
+		</body>
+	</html>
+}
