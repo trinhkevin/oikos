@@ -94,6 +94,44 @@ func (s *Store) DiskUsageBytes(dir string) (int64, error) {
 	return total, nil
 }
 
+// Get fetches a single photo by id — used to enrich a guest book entry
+// with its linked photo's path/thumb_path for rendering, since
+// guestbook.Store.List only returns the bare PhotoID.
+func (s *Store) Get(ctx context.Context, id int64) (Photo, error) {
+	var p Photo
+	var hidden int
+	var caption sql.NullString
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, file_id, path, thumb_path, byte_size, width, height, source, caption, created_at, hidden, client_ip
+		FROM photos WHERE id = ?`, id,
+	).Scan(&p.ID, &p.FileID, &p.Path, &p.ThumbPath, &p.ByteSize, &p.Width, &p.Height, &p.Source, &caption, &p.CreatedAt, &hidden, &p.ClientIP)
+	if err != nil {
+		return Photo{}, fmt.Errorf("photos: getting %d: %w", id, err)
+	}
+	p.Caption = caption.String
+	p.Hidden = hidden != 0
+	return p, nil
+}
+
+// IsHidden reports whether relPath (or its thumbnail counterpart)
+// belongs to a photo explicitly marked hidden via moderation. A path
+// with no matching row is NOT considered hidden — fail open for
+// untracked files, fail closed only for explicitly moderated ones.
+func (s *Store) IsHidden(ctx context.Context, relPath string) (bool, error) {
+	var hidden int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT hidden FROM photos WHERE path = ? OR thumb_path = ?`,
+		relPath, relPath,
+	).Scan(&hidden)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("photos: checking hidden status for %s: %w", relPath, err)
+	}
+	return hidden != 0, nil
+}
+
 func boolToInt(b bool) int {
 	if b {
 		return 1

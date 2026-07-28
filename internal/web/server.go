@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"io/fs"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	homesite "homesite"
@@ -39,7 +40,7 @@ func New(cfg *config.Config, db *sql.DB) *Server {
 		mux:            http.NewServeMux(),
 		cfg:            cfg,
 		menuLoader:     content.NewMenuLoader(cache),
-		catLoader:      content.NewCatLoader(cache, cfg.ContentDir+"/cats"),
+		catLoader:      content.NewCatLoader(cache, filepath.Join(cfg.ContentDir, "cats")),
 		welcomeLoader:  content.NewWelcomeLoader(cache),
 		photosStore:    photosStore,
 		photosIngester: photos.NewIngester(photosStore, cfg.Photos, cfg.UploadsDir),
@@ -64,11 +65,8 @@ func New(cfg *config.Config, db *sql.DB) *Server {
 	}
 	s.mux.Handle("/static/", http.StripPrefix("/static/", http.FileServerFS(staticSub)))
 
-	catsPhotoDir := http.Dir(cfg.ContentDir + "/cats")
-	s.mux.Handle("/media/", http.StripPrefix("/media/", http.FileServer(catsPhotoDir)))
-
-	uploadsDir := http.Dir(cfg.UploadsDir)
-	s.mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(uploadsDir)))
+	s.mux.HandleFunc("GET /media/", s.handleMedia)
+	s.mux.HandleFunc("GET /uploads/", s.handleUploads)
 
 	s.mux.HandleFunc("GET /healthz", s.handleHealthz)
 	s.registerPageRoutes()

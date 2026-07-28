@@ -64,6 +64,70 @@ func TestStoreListExcludesHidden(t *testing.T) {
 	}
 }
 
+func TestIsHiddenReturnsTrueForHiddenPhoto(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	hidden := Photo{
+		FileID: "hidden1", Path: "2026-07/hidden1.jpg", ThumbPath: "2026-07/hidden1_thumb.jpg",
+		Source: "gallery", CreatedAt: "2026-07-27T12:00:00Z", ClientIP: "1.1.1.1", Hidden: true,
+	}
+	if _, err := s.Insert(ctx, hidden); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.IsHidden(ctx, "2026-07/hidden1.jpg")
+	if err != nil {
+		t.Fatalf("IsHidden: %v", err)
+	}
+	if !got {
+		t.Error("IsHidden = false, want true for a hidden photo's path")
+	}
+
+	// The thumbnail counterpart must report hidden too.
+	got, err = s.IsHidden(ctx, "2026-07/hidden1_thumb.jpg")
+	if err != nil {
+		t.Fatalf("IsHidden: %v", err)
+	}
+	if !got {
+		t.Error("IsHidden = false, want true for a hidden photo's thumb_path")
+	}
+}
+
+func TestIsHiddenReturnsFalseForVisiblePhoto(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	visible := Photo{
+		FileID: "visible1", Path: "2026-07/visible1.jpg", ThumbPath: "2026-07/visible1_thumb.jpg",
+		Source: "gallery", CreatedAt: "2026-07-27T12:00:00Z", ClientIP: "1.1.1.1",
+	}
+	if _, err := s.Insert(ctx, visible); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.IsHidden(ctx, "2026-07/visible1.jpg")
+	if err != nil {
+		t.Fatalf("IsHidden: %v", err)
+	}
+	if got {
+		t.Error("IsHidden = true, want false for a visible photo's path")
+	}
+}
+
+func TestIsHiddenReturnsFalseForUnknownPath(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	got, err := s.IsHidden(ctx, "2026-07/no-such-file.jpg")
+	if err != nil {
+		t.Fatalf("IsHidden: %v", err)
+	}
+	if got {
+		t.Error("IsHidden = true, want false (fail open) for a path with no matching row")
+	}
+}
+
 func TestDiskUsageBytesSumsFiles(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir+"/a.jpg", make([]byte, 100))

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"homesite/internal/config"
@@ -124,6 +125,68 @@ func TestIngestWrapsConverterFailure(t *testing.T) {
 	_, err := ing.Ingest(context.Background(), bytes.NewReader(jpeg), "gallery", "192.168.1.20")
 	if !errors.Is(err, ErrProcessing) {
 		t.Fatalf("err = %v, want ErrProcessing", err)
+	}
+}
+
+// pathInspectingConverter records the srcPath it's called with, so the
+// test can assert it — the regression coverage for the security fix
+// that relocated the temp source file outside the served uploads tree
+// (it used to live inside destDir, browsable via /uploads/ until the
+// deferred cleanup ran).
+type pathInspectingConverter struct {
+	convertSrcPath, thumbnailSrcPath string
+}
+
+func (f *pathInspectingConverter) ConvertAndStrip(ctx context.Context, src, dst string) (imaging.Result, error) {
+	f.convertSrcPath = src
+	if err := os.WriteFile(dst, []byte("fake-jpeg-bytes"), 0o644); err != nil {
+		return imaging.Result{}, err
+	}
+	return imaging.Result{Width: 800, Height: 600}, nil
+}
+
+func (f *pathInspectingConverter) Thumbnail(ctx context.Context, src, dst string, longEdge int) error {
+	f.thumbnailSrcPath = src
+	return os.WriteFile(dst, []byte("fake-thumb-bytes"), 0o644)
+}
+
+func TestIngestWritesTempSourceOutsideUploadsDir(t *testing.T) {
+	uploadsDir := t.TempDir()
+	conv := &pathInspectingConverter{}
+	ing := &Ingester{store: newTestStore(t), cfg: testPhotosConfig(), uploadsDir: uploadsDir, conv: conv}
+
+	jpeg := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0, 1, 2, 3, 4, 5}
+	if _, err := ing.Ingest(context.Background(), bytes.NewReader(jpeg), "gallery", "192.168.1.20"); err != nil {
+		t.Fatalf("Ingest: %v", err)
+	}
+
+	absUploadsDir, err := filepath.Abs(uploadsDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, path := range map[string]string{
+		"ConvertAndStrip's srcPath": conv.convertSrcPath,
+		"Thumbnail's srcPath":       conv.thumbnailSrcPath,
+	} {
+		if path == "" {
+			t.Fatalf("%s was never recorded — converter not called?", name)
+		}
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rel, err := filepath.Rel(absUploadsDir, absPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// filepath.Rel returns a path starting with ".." (or being an
+		// absolute path on some platforms) whenever absPath falls
+		// outside absUploadsDir. Anything else means it's inside —
+		// exactly the bug this test guards against.
+		if rel == "." || (!strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != "..") {
+			t.Errorf("%s = %q, is INSIDE uploadsDir %q (rel=%q) — the raw guest upload must never be reachable via /uploads/", name, path, uploadsDir, rel)
+		}
 	}
 }
 

@@ -94,11 +94,24 @@ func (ing *Ingester) Ingest(ctx context.Context, r io.Reader, source, clientIP s
 		return Photo{}, fmt.Errorf("photos: creating upload dir: %w", err)
 	}
 
-	tmpSrc := filepath.Join(destDir, fileID+"_src"+extensionFor(mimeType))
+	// The raw guest upload (full EXIF, full GPS) is written to a temp
+	// directory OUTSIDE the served uploads tree, never inside destDir —
+	// destDir is reachable via /uploads/ and must only ever contain the
+	// already-stripped final output and thumbnail. defer os.RemoveAll
+	// covers both the normal-completion cleanup and the crash/SIGKILL
+	// case: a process death just leaves this under the OS temp dir
+	// (isolated by systemd's PrivateTmp=true in production), never inside
+	// the public tree.
+	tmpDir, err := os.MkdirTemp("", "homesite-ingest-")
+	if err != nil {
+		return Photo{}, fmt.Errorf("photos: creating temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	tmpSrc := filepath.Join(tmpDir, fileID+"_src"+extensionFor(mimeType))
 	if err := os.WriteFile(tmpSrc, buf, 0o644); err != nil {
 		return Photo{}, fmt.Errorf("photos: writing temp source: %w", err)
 	}
-	defer os.Remove(tmpSrc)
 
 	relPath := filepath.Join(monthDir, fileID+".jpg")
 	relThumb := filepath.Join(monthDir, fileID+"_thumb.jpg")
@@ -116,6 +129,8 @@ func (ing *Ingester) Ingest(ctx context.Context, r io.Reader, source, clientIP s
 
 	finalInfo, err := os.Stat(finalPath)
 	if err != nil {
+		os.Remove(finalPath)
+		os.Remove(thumbPath)
 		return Photo{}, fmt.Errorf("photos: stat final image: %w", err)
 	}
 
@@ -126,6 +141,8 @@ func (ing *Ingester) Ingest(ctx context.Context, r io.Reader, source, clientIP s
 	}
 	id, err := ing.store.Insert(ctx, photo)
 	if err != nil {
+		os.Remove(finalPath)
+		os.Remove(thumbPath)
 		return Photo{}, fmt.Errorf("photos: recording metadata: %w", err)
 	}
 	photo.ID = id
