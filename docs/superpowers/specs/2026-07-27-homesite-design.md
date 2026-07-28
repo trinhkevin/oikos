@@ -105,7 +105,7 @@ no TLS. The Go binary binds `:80` directly, running as a non-root user with
 | Storage | SQLite via `modernc.org/sqlite` | Pure Go, so cross-compiling needs no CGO toolchain. |
 | Images | ImageMagick via `exec` | HEIC decoding, EXIF stripping, thumbnails. Keeps the Go binary CGO-free. |
 | Markdown | `goldmark` | Cat biographies. |
-| QR | `github.com/skip2/go-qrcode` | WiFi and site QRs. |
+| QR | `github.com/yeqown/go-qrcode/v2` | WiFi and site QRs, rendered as PNG. |
 | Config | `gopkg.in/yaml.v3` | Content files and `config.yaml`. |
 | Fonts | Fraunces (SIL OFL) at weight 900 for headlines; Lora (SIL OFL) for body — both self-hosted `woff2`, both Google Fonts | See Visual direction. |
 
@@ -447,7 +447,7 @@ homesite/
   internal/photos/            ingest pipeline, gallery queries, disk cap
   internal/imaging/           ImageMagick exec wrapper: convert, strip, thumbnail
   internal/spotify/           OAuth flow, token refresh, now-playing, search, queue-add
-  internal/qr/                SVG render; WiFi and URL payload builders
+  internal/qr/                PNG render; WiFi and URL payload builders
   internal/web/               routes, handlers, templ components
   views/                      .templ files
   static/                     CSS, htmx.min.js, Fraunces + Lora woff2 (go:embed)
@@ -483,6 +483,7 @@ a real Spotify, a real ImageMagick, nor a real filesystem.
 |---|---|
 | `GET /` | Welcome and nav hub |
 | `GET /wifi` | WiFi join QR |
+| `GET /wifi/qr.png` | The WiFi QR's PNG image |
 | `GET /coffee`, `/cocktails`, `/refreshments` | Menus |
 | `GET /music` | Now playing, search box, recent requests |
 | `GET /music/search?q=` | HTMX fragment of matching tracks |
@@ -494,6 +495,7 @@ a real Spotify, a real ImageMagick, nor a real filesystem.
 | `POST /guestbook` | Create entry → HTMX fragment |
 | `GET /cats`, `GET /cats/{slug}` | Cat index and profiles |
 | `GET /share` | Site URL QR |
+| `GET /share/qr.png` | The Share QR's PNG image |
 | `GET /healthz` | Liveness, disk usage, last backup time |
 | `GET /static/*` | Embedded assets |
 | `GET /media/*` | Cat photos from `content/cats/` |
