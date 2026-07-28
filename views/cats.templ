@@ -1,0 +1,37 @@
+package views
+
+import "homesite/internal/content"
+
+templ CatsIndex(cats []content.Cat) {
+	@Layout("Meet the Cats", HeaderStandard, catsIndexBody(cats))
+}
+
+templ catsIndexBody(cats []content.Cat) {
+	<h1>Meet the Cats</h1>
+	<div class="card-grid">
+		for _, cat := range cats {
+			<a class="nav-card" href={ templ.URL("/cats/" + cat.Slug) }>
+				<img src={ "/media/" + cat.Photo } alt={ cat.Name } class="cat-thumb"/>
+				<span class="nav-card-title">{ cat.Name }</span>
+			</a>
+		}
+	</div>
+}
+
+templ CatDetail(cat content.Cat) {
+	@Layout(cat.Name, HeaderStandard, catDetailBody(cat))
+}
+
+templ catDetailBody(cat content.Cat) {
+	<h1>{ cat.Name }</h1>
+	<img src={ "/media/" + cat.Photo } alt={ cat.Name } class="cat-photo"/>
+	<div class="prose">
+		@templ.Raw(cat.BioHTML)
+	</div>
+	if len(cat.Likes) > 0 {
+		<p><strong>Likes:</strong> { joinStrings(cat.Likes) }</p>
+	}
+	if len(cat.Dislikes) > 0 {
+		<p><strong>Dislikes:</strong> { joinStrings(cat.Dislikes) }</p>
+	}
+}

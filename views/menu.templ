@@ -1,0 +1,37 @@
+package views
+
+import "homesite/internal/content"
+
+templ MenuPage(menu content.Menu) {
+	@Layout(menu.Title, HeaderStandard, menuBody(menu))
+}
+
+templ menuBody(menu content.Menu) {
+	<h1>{ menu.Title }</h1>
+	if menu.Note != "" {
+		<p class="menu-note">{ menu.Note }</p>
+	}
+	for _, section := range menu.Sections {
+		<section class="menu-section">
+			<h2>{ section.Name }</h2>
+			for _, item := range section.Items {
+				<article class="menu-item">
+					<h3>{ item.Name }</h3>
+					if item.Description != "" {
+						<p>{ item.Description }</p>
+					}
+					if len(item.Ingredients) > 0 {
+						<p class="menu-item-ingredients">
+							for i, ing := range item.Ingredients {
+								if i > 0 {
+									{ ", " }
+								}
+								{ ing }
+							}
+						</p>
+					}
+				</article>
+			}
+		</section>
+	}
+}

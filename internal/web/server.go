@@ -7,15 +7,26 @@ import (
 
 	homesite "homesite"
 	"homesite/internal/config"
+	"homesite/internal/content"
 )
 
 type Server struct {
-	mux *http.ServeMux
-	cfg *config.Config
+	mux           *http.ServeMux
+	cfg           *config.Config
+	menuLoader    *content.MenuLoader
+	catLoader     *content.CatLoader
+	welcomeLoader *content.WelcomeLoader
 }
 
 func New(cfg *config.Config) *Server {
-	s := &Server{mux: http.NewServeMux(), cfg: cfg}
+	cache := content.NewCache()
+	s := &Server{
+		mux:           http.NewServeMux(),
+		cfg:           cfg,
+		menuLoader:    content.NewMenuLoader(cache),
+		catLoader:     content.NewCatLoader(cache, cfg.ContentDir+"/cats"),
+		welcomeLoader: content.NewWelcomeLoader(cache),
+	}
 
 	staticSub, err := fs.Sub(homesite.StaticFS, "static")
 	if err != nil {
@@ -27,6 +38,7 @@ func New(cfg *config.Config) *Server {
 	s.mux.Handle("/media/", http.StripPrefix("/media/", http.FileServer(catsPhotoDir)))
 
 	s.mux.HandleFunc("GET /healthz", s.handleHealthz)
+	s.registerPageRoutes()
 
 	return s
 }

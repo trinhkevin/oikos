@@ -1,0 +1,12 @@
+package views
+
+templ Welcome(bodyHTML string) {
+	@Layout("Welcome", HeaderStandard, welcomeBody(bodyHTML))
+}
+
+templ welcomeBody(bodyHTML string) {
+	<div class="prose">
+		@templ.Raw(bodyHTML)
+	</div>
+	@CardGrid(NavItems)
+}
