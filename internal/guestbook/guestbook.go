@@ -70,7 +70,7 @@ func (s *Store) Create(ctx context.Context, e Entry) (int64, error) {
 func (s *Store) List(ctx context.Context) ([]Entry, error) {
 	rows, err := s.sqlDB.QueryContext(ctx, `
 		SELECT id, name, message, photo_id, created_at, hidden, client_ip
-		FROM guestbook_entries WHERE hidden = 0 ORDER BY created_at DESC`,
+		FROM guestbook_entries WHERE hidden = 0 ORDER BY created_at DESC, id DESC`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("guestbook: listing: %w", err)

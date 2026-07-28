@@ -29,6 +29,14 @@ func (s *Server) handleGuestbookCreate(w http.ResponseWriter, r *http.Request) {
 		Name: name, Message: message, ClientIP: clientIP(r),
 	})
 	if err != nil {
+		// The form's own hx-target/hx-swap ("#guestbook-entries" /
+		// "afterbegin") are correct for the success case, but this
+		// validation-error fragment is a whole <form>, not a new entry —
+		// left alone, htmx would prepend it into the entries list instead
+		// of updating the form the guest is looking at. Retarget/reswap
+		// this one response so it replaces #guestbook-form in place.
+		w.Header().Set("HX-Retarget", "#guestbook-form")
+		w.Header().Set("HX-Reswap", "outerHTML")
 		render(w, r, views.GuestbookForm(&views.GuestbookFormError{
 			Message:  guestbookErrorMessage(err),
 			Name:     name,

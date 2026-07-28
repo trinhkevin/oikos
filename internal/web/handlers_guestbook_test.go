@@ -63,3 +63,19 @@ func TestGuestbookCreateRejectsEmptyMessagePreservingName(t *testing.T) {
 		t.Error("expected an inline message-required error")
 	}
 }
+
+func TestGuestbookCreateValidationFailureRetargetsToForm(t *testing.T) {
+	s := newTestServer(t)
+	form := url.Values{"name": {"Jamie"}, "message": {""}}
+	req := httptest.NewRequest(http.MethodPost, "/guestbook", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("HX-Retarget"); got != "#guestbook-form" {
+		t.Errorf("HX-Retarget = %q, want #guestbook-form", got)
+	}
+	if got := rec.Header().Get("HX-Reswap"); got != "outerHTML" {
+		t.Errorf("HX-Reswap = %q, want outerHTML", got)
+	}
+}
