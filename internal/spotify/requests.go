@@ -4,7 +4,26 @@ package spotify
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+)
+
+var (
+	ErrTrackNameTooLong  = errors.New("track name is too long")
+	ErrArtistNameTooLong = errors.New("artist name is too long")
+)
+
+// MaxTrackNameLength and MaxArtistNameLength cap the guest-supplied
+// track/artist text stored in song_requests and rendered back to every
+// guest on the Music page's "Recently added" list. These come from
+// hidden form fields the search-results UI populates from Spotify's own
+// (always reasonably short) metadata, but a request can be crafted
+// directly, so the domain layer enforces the cap regardless of caller —
+// same convention as guestbook.Store.Create's MaxNameLength/
+// MaxMessageLength.
+const (
+	MaxTrackNameLength  = 200
+	MaxArtistNameLength = 200
 )
 
 type SongRequest struct {
@@ -30,6 +49,13 @@ func NewRequestStore(db *sql.DB) *RequestStore {
 }
 
 func (s *RequestStore) Insert(ctx context.Context, r SongRequest) (int64, error) {
+	if len(r.TrackName) > MaxTrackNameLength {
+		return 0, ErrTrackNameTooLong
+	}
+	if len(r.ArtistName) > MaxArtistNameLength {
+		return 0, ErrArtistNameTooLong
+	}
+
 	res, err := s.db.ExecContext(ctx, `
 		INSERT INTO song_requests (track_uri, track_name, artist_name, requested_by, created_at, client_ip, status)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,

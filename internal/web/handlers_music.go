@@ -52,6 +52,16 @@ func (s *Server) handleMusicRequest(w http.ResponseWriter, r *http.Request) {
 	nickname := r.PostFormValue("nickname")
 	ip := clientIP(r)
 
+	// name/artist come from hidden form fields that the search-results UI
+	// populates from Spotify's own (always short) metadata, but a request
+	// can be crafted directly — reject oversized values before ever
+	// touching Spotify's queue or the database. RequestStore.Insert
+	// enforces the same cap independently as a domain-layer backstop.
+	if len(name) > spotify.MaxTrackNameLength || len(artist) > spotify.MaxArtistNameLength {
+		render(w, r, views.RequestResult(false, "That request looks invalid — try searching again"))
+		return
+	}
+
 	err := s.spotifyClient.QueueTrack(r.Context(), uri)
 	status := "queued"
 	message := "Added to the queue!"
@@ -61,14 +71,19 @@ func (s *Server) handleMusicRequest(w http.ResponseWriter, r *http.Request) {
 		log.Printf("web: queue error: %v", err)
 	}
 
+	success := err == nil
 	if _, insertErr := s.requestStore.Insert(r.Context(), spotify.SongRequest{
 		TrackURI: uri, TrackName: name, ArtistName: artist, RequestedBy: nickname,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339), ClientIP: ip, Status: status,
 	}); insertErr != nil {
+		if errors.Is(insertErr, spotify.ErrTrackNameTooLong) || errors.Is(insertErr, spotify.ErrArtistNameTooLong) {
+			success = false
+			message = "That request looks invalid — try searching again"
+		}
 		log.Printf("web: recording song request: %v", insertErr)
 	}
 
-	render(w, r, views.RequestResult(err == nil, message))
+	render(w, r, views.RequestResult(success, message))
 }
 
 func spotifyErrorMessage(err error) string {

@@ -4,6 +4,7 @@ package spotify
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -23,7 +24,7 @@ func (s *SQLTokenStore) LoadRefreshToken(ctx context.Context) (string, error) {
 	err := s.db.QueryRowContext(ctx,
 		`SELECT refresh_token FROM oauth_tokens WHERE provider = 'spotify'`,
 	).Scan(&token)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
 	if err != nil {

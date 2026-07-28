@@ -56,11 +56,12 @@ type Client struct {
 	tokenURL   string
 	apiBaseURL string
 
-	mu           sync.Mutex
-	accessToken  string
-	accessExpiry time.Time
-	nowPlaying   *Track
-	nowPlayingAt time.Time
+	mu               sync.Mutex
+	accessToken      string
+	accessExpiry     time.Time
+	nowPlaying       *Track
+	nowPlayingCached bool // true once a fetch has populated nowPlaying, even when it's nil (nothing playing)
+	nowPlayingAt     time.Time
 }
 
 func New(clientID, clientSecret, redirectURI string, tokens TokenStore, nowPlayingTTL time.Duration) *Client {
@@ -95,6 +96,19 @@ type tokenResponse struct {
 	ExpiresIn    int    `json:"expires_in"`
 }
 
+// statusError carries the HTTP status code of a non-200 response from
+// Spotify's accounts/token endpoint, so callers can distinguish a
+// rate-limited or transient failure from an actually-invalid grant
+// instead of treating every non-200 the same way.
+type statusError struct {
+	status int
+	body   []byte
+}
+
+func (e *statusError) Error() string {
+	return fmt.Sprintf("status %d: %s", e.status, e.body)
+}
+
 func (c *Client) postForm(ctx context.Context, endpoint string, form url.Values) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -109,7 +123,7 @@ func (c *Client) postForm(ctx context.Context, endpoint string, form url.Values)
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, body)
+		return nil, &statusError{status: resp.StatusCode, body: body}
 	}
 	return body, nil
 }
@@ -144,14 +158,24 @@ func (c *Client) ExchangeCode(ctx context.Context, code string) error {
 
 // getAccessToken returns a valid access token, refreshing via the stored
 // refresh token if the cached one is missing or expired.
+//
+// The lock is held across the entire refresh sequence, including the
+// network round-trip — deliberately, not an oversight. Without this,
+// concurrent callers arriving right as the access token expires (several
+// guests loading /music at once, or right after a restart) would each
+// independently refresh with the same refresh token and each
+// independently call SaveTokens; depending on Spotify's rotation timing,
+// a later response could clobber an earlier one that was actually still
+// valid, silently locking the host out. Holding the lock serializes
+// refreshes so only the first caller through actually hits the network;
+// everyone behind it sees the freshly-cached token once it's their turn.
 func (c *Client) getAccessToken(ctx context.Context) (string, error) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.accessToken != "" && time.Now().Before(c.accessExpiry) {
-		tok := c.accessToken
-		c.mu.Unlock()
-		return tok, nil
+		return c.accessToken, nil
 	}
-	c.mu.Unlock()
 
 	refreshToken, err := c.tokens.LoadRefreshToken(ctx)
 	if err != nil {
@@ -166,17 +190,15 @@ func (c *Client) getAccessToken(ctx context.Context) (string, error) {
 		"refresh_token": {refreshToken},
 	})
 	if err != nil {
-		return "", fmt.Errorf("spotify: refreshing token: %w: %w", err, ErrTokenInvalid)
+		return "", fmt.Errorf("spotify: refreshing token: %w: %w", err, classifyTokenError(err))
 	}
 	var resp tokenResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return "", fmt.Errorf("spotify: decoding refresh response: %w", err)
 	}
 
-	c.mu.Lock()
 	c.accessToken = resp.AccessToken
 	c.accessExpiry = time.Now().Add(time.Duration(resp.ExpiresIn-30) * time.Second)
-	c.mu.Unlock()
 
 	// Spotify may rotate the refresh token; persist it if a new one came back.
 	if resp.RefreshToken != "" {
@@ -188,13 +210,36 @@ func (c *Client) getAccessToken(ctx context.Context) (string, error) {
 	return resp.AccessToken, nil
 }
 
+// classifyTokenError maps a token-endpoint failure to the sentinel that
+// best describes it, so a transient blip (429, 5xx, timeout) doesn't get
+// conflated with an actually-invalid or revoked refresh token. Only a
+// genuine invalid-grant response (400/401 — Spotify's actual rejection
+// of a bad refresh token) maps to ErrTokenInvalid, which tells the host
+// to redo the whole one-time OAuth setup; everything else is transient.
+func classifyTokenError(err error) error {
+	var se *statusError
+	if errors.As(err, &se) {
+		switch {
+		case se.status == http.StatusTooManyRequests:
+			return ErrRateLimited
+		case se.status == http.StatusBadRequest || se.status == http.StatusUnauthorized:
+			return ErrTokenInvalid
+		default:
+			return ErrUpstream
+		}
+	}
+	// Not an HTTP-status failure at all (connection refused, timeout,
+	// context cancellation, etc.) — transient by nature.
+	return ErrUpstream
+}
+
 // NowPlaying returns the currently-playing track, cached for
 // nowPlayingTTL so a room full of guests loading the page doesn't
 // hammer the API. Returns (nil, nil) when nothing is playing — that is
 // not an error condition.
 func (c *Client) NowPlaying(ctx context.Context) (*Track, error) {
 	c.mu.Lock()
-	if c.nowPlaying != nil && time.Now().Before(c.nowPlayingAt.Add(c.nowPlayingTTL)) {
+	if c.nowPlayingCached && time.Now().Before(c.nowPlayingAt.Add(c.nowPlayingTTL)) {
 		np := c.nowPlaying
 		c.mu.Unlock()
 		return np, nil
@@ -220,6 +265,7 @@ func (c *Client) NowPlaying(ctx context.Context) (*Track, error) {
 	if resp.StatusCode == http.StatusNoContent {
 		c.mu.Lock()
 		c.nowPlaying = nil
+		c.nowPlayingCached = true
 		c.nowPlayingAt = time.Now()
 		c.mu.Unlock()
 		return nil, nil
@@ -244,6 +290,19 @@ func (c *Client) NowPlaying(ctx context.Context) (*Track, error) {
 		return nil, fmt.Errorf("spotify: decoding now-playing: %w", err)
 	}
 
+	if body.Item.URI == "" {
+		// Spotify can return HTTP 200 with "item": null in some legitimate
+		// states (e.g. an ad on a free account, certain playback contexts)
+		// — decodes to a zero-value Item, not an error. Treat exactly like
+		// 204: nothing playing, and cache it as such.
+		c.mu.Lock()
+		c.nowPlaying = nil
+		c.nowPlayingCached = true
+		c.nowPlayingAt = time.Now()
+		c.mu.Unlock()
+		return nil, nil
+	}
+
 	names := make([]string, 0, len(body.Item.Artists))
 	for _, a := range body.Item.Artists {
 		names = append(names, a.Name)
@@ -252,6 +311,7 @@ func (c *Client) NowPlaying(ctx context.Context) (*Track, error) {
 
 	c.mu.Lock()
 	c.nowPlaying = track
+	c.nowPlayingCached = true
 	c.nowPlayingAt = time.Now()
 	c.mu.Unlock()
 
