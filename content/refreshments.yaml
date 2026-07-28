@@ -1,0 +1,15 @@
+title: Refreshments
+note: Help yourself.
+sections:
+  - name: Snacks
+    items:
+      - name: Mixed Nuts
+        description: Salted, in the bowl by the door.
+      - name: Cheese Board
+        description: Rotating selection — ask if you have allergies.
+  - name: Non-Alcoholic
+    items:
+      - name: Sparkling Water
+        description: Lime or plain, in the fridge.
+      - name: Iced Tea
+        description: Unsweetened, pitcher on the counter.

@@ -1,0 +1,9 @@
+title: Cocktail Menu
+note: Ask about the rotating seasonal.
+sections:
+  - name: Classics
+    items:
+      - name: Negroni
+        description: Equal parts, stirred, orange peel.
+        ingredients: [Gin, Campari, Sweet vermouth]
+        tags: [stirred, bitter]
