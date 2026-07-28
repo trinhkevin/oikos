@@ -8,14 +8,14 @@ import (
 )
 
 type Config struct {
-	Site        SiteConfig    `yaml:"site"`
-	WiFi        WiFiConfig    `yaml:"wifi"`
-	Spotify     SpotifyConfig `yaml:"spotify"`
-	Photos      PhotosConfig  `yaml:"photos"`
-	Limits      LimitsConfig  `yaml:"limits"`
-	ContentDir  string        `yaml:"content_dir"`
-	DataDir     string        `yaml:"data_dir"`
-	UploadsDir  string        `yaml:"uploads_dir"`
+	Site       SiteConfig    `yaml:"site"`
+	WiFi       WiFiConfig    `yaml:"wifi"`
+	Spotify    SpotifyConfig `yaml:"spotify"`
+	Photos     PhotosConfig  `yaml:"photos"`
+	Limits     LimitsConfig  `yaml:"limits"`
+	ContentDir string        `yaml:"content_dir"`
+	DataDir    string        `yaml:"data_dir"`
+	UploadsDir string        `yaml:"uploads_dir"`
 }
 
 type SiteConfig struct {
@@ -40,10 +40,10 @@ type SpotifyConfig struct {
 }
 
 type PhotosConfig struct {
-	MaxFileBytes   int64 `yaml:"max_file_bytes"`
-	MaxTotalBytes  int64 `yaml:"max_total_bytes"`
-	WarnAtPercent  int   `yaml:"warn_at_percent"`
-	ThumbLongEdge  int   `yaml:"thumb_long_edge"`
+	MaxFileBytes  int64 `yaml:"max_file_bytes"`
+	MaxTotalBytes int64 `yaml:"max_total_bytes"`
+	WarnAtPercent int   `yaml:"warn_at_percent"`
+	ThumbLongEdge int   `yaml:"thumb_long_edge"`
 }
 
 type LimitsConfig struct {
@@ -62,5 +62,47 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(b, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing config %s: %w", path, err)
 	}
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("validating config %s: %w", path, err)
+	}
 	return &cfg, nil
+}
+
+// validate rejects a config that would otherwise degrade silently
+// instead of failing loudly at startup. This matters most on the
+// disaster-recovery path: a hand-recreated config.yaml (exactly what
+// docs/RUNBOOK.md asks someone to do after a dead SD card) with any
+// numeric field accidentally omitted would otherwise zero-value its way
+// into a silent, total feature outage — a missing window_minutes or
+// *_per_window makes every rate-limited endpoint either wide open or
+// permanently blocked (see internal/web/ratelimit.go's allow method: a
+// zero max makes len(kept) >= rl.max trivially true), a missing
+// max_total_bytes makes every upload look like it exceeds a zero cap,
+// and a missing max_file_bytes breaks upload sniffing entirely.
+func (cfg *Config) validate() error {
+	switch {
+	case cfg.Site.Listen == "":
+		return fmt.Errorf("site.listen must not be empty")
+	case cfg.Site.URL == "":
+		return fmt.Errorf("site.url must not be empty")
+	case cfg.ContentDir == "":
+		return fmt.Errorf("content_dir must not be empty")
+	case cfg.DataDir == "":
+		return fmt.Errorf("data_dir must not be empty")
+	case cfg.UploadsDir == "":
+		return fmt.Errorf("uploads_dir must not be empty")
+	case cfg.Photos.MaxFileBytes <= 0:
+		return fmt.Errorf("photos.max_file_bytes must be greater than 0")
+	case cfg.Photos.MaxTotalBytes <= 0:
+		return fmt.Errorf("photos.max_total_bytes must be greater than 0")
+	case cfg.Limits.WindowMinutes <= 0:
+		return fmt.Errorf("limits.window_minutes must be greater than 0")
+	case cfg.Limits.GuestbookPerWindow <= 0:
+		return fmt.Errorf("limits.guestbook_per_window must be greater than 0")
+	case cfg.Limits.PhotoUploadsPerWindow <= 0:
+		return fmt.Errorf("limits.photo_uploads_per_window must be greater than 0")
+	case cfg.Limits.SongRequestsPerWindow <= 0:
+		return fmt.Errorf("limits.song_requests_per_window must be greater than 0")
+	}
+	return nil
 }
