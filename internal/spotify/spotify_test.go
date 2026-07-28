@@ -38,6 +38,17 @@ func TestAuthURLIncludesScopesAndState(t *testing.T) {
 	if !strings.Contains(u, "client_id=id") {
 		t.Errorf("AuthURL = %q, want it to contain client_id", u)
 	}
+	// The scope actually matters: deleting user-modify-playback-state
+	// from Scopes would leave queue-add silently failing with a 403,
+	// discoverable only by redoing the whole SSH-tunnel OAuth dance.
+	// url.Values.Encode() space-separates and then percent-encodes the
+	// scope string, so a space becomes "+".
+	if !strings.Contains(u, "scope=") {
+		t.Fatalf("AuthURL = %q, want it to contain a scope param", u)
+	}
+	if !strings.Contains(u, "user-modify-playback-state") {
+		t.Errorf("AuthURL = %q, want it to request the user-modify-playback-state scope (required for queue-add)", u)
+	}
 }
 
 // testSpotifyServer fakes the accounts token endpoint and the three API.

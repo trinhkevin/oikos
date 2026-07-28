@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -29,6 +30,16 @@ func TestSpotifyLoginRedirectsForLoopback(t *testing.T) {
 	loc := rec.Header().Get("Location")
 	if loc == "" {
 		t.Fatal("expected a Location header pointing at Spotify's authorize endpoint")
+	}
+	// Not just "some URL came back" — it must actually request the
+	// scopes the queue-add and now-playing features depend on.
+	if !strings.Contains(loc, "scope=") {
+		t.Fatalf("Location = %q, want it to contain a scope param", loc)
+	}
+	for _, want := range []string{"user-read-currently-playing", "user-read-playback-state", "user-modify-playback-state"} {
+		if !strings.Contains(loc, want) {
+			t.Errorf("Location = %q, want it to contain scope %q", loc, want)
+		}
 	}
 }
 
