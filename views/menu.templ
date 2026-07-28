@@ -30,6 +30,13 @@ templ menuBody(menu content.Menu) {
 							}
 						</p>
 					}
+					if len(item.Tags) > 0 {
+						<ul class="menu-item-tags">
+							for _, tag := range item.Tags {
+								<li class="menu-item-tag">{ tag }</li>
+							}
+						</ul>
+					}
 				</article>
 			}
 		</section>

@@ -5,8 +5,12 @@ templ Welcome(bodyHTML string) {
 }
 
 templ welcomeBody(bodyHTML string) {
-	<div class="prose">
-		@templ.Raw(bodyHTML)
+	<div class="hero">
+		<span class="eyebrow">The household, open tonight</span>
+		<h1 class="hero-title">Brivin Household</h1>
+		<div class="prose">
+			@templ.Raw(bodyHTML)
+		</div>
 	</div>
 	@CardGrid(NavItems)
 }

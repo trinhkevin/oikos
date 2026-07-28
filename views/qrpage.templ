@@ -2,10 +2,11 @@
 package views
 
 templ QRPage(title, qrSrc, primaryText, fallbackText string) {
-	@Layout(title, HeaderQR, qrPageBody(qrSrc, primaryText, fallbackText))
+	@Layout(title, HeaderQR, qrPageBody(title, qrSrc, primaryText, fallbackText))
 }
 
-templ qrPageBody(qrSrc, primaryText, fallbackText string) {
+templ qrPageBody(title, qrSrc, primaryText, fallbackText string) {
+	<h1 class="qr-title">{ title }</h1>
 	<div class="qr-card">
 		<img src={ qrSrc } alt="QR code" width="320" height="320"/>
 		<p class="qr-primary-text">{ primaryText }</p>
