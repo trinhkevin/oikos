@@ -4825,25 +4825,188 @@ git commit -m "Add rate limiting to guest book and photo upload endpoints"
 
 ---
 
-## Task 17: Spotify Client-Credentials Client and Music Page
+## Task 17: Spotify OAuth — Now Playing, Search, and Unmoderated Queue Requests
+
+This task replaces an earlier design that used a collaborative playlist read via
+client-credentials specifically to avoid OAuth. The site owner asked mid-implementation for
+live now-playing and direct, unmoderated queue control, both of which are scoped to a real
+user's device — there is no app-only equivalent, so this task reintroduces the OAuth surface
+the original brainstorming deliberately avoided. See
+`docs/superpowers/specs/2026-07-27-homesite-design.md`'s Music Requests section for the full
+rationale.
 
 **Files:**
-- Create: `internal/spotify/spotify.go`
-- Test: `internal/spotify/spotify_test.go`
-- Modify: `internal/web/server.go` (add `spotifyClient` field, construct in `New`, register routes)
-- Create: `internal/web/handlers_music.go`
-- Test: `internal/web/handlers_music_test.go`
+- Modify: `internal/store/store.go` (add `oauth_tokens` and `song_requests` tables to the schema)
+- Test: `internal/store/store_test.go` (assert the two new tables exist)
+- Modify: `internal/config/config.go` (replace `SpotifyConfig`'s fields; add `SongRequestsPerWindow` to `LimitsConfig`)
+- Modify: `internal/config/testdata/valid.yaml`, `config.example.yaml`, `config.local.example.yaml` (new Spotify field names)
+- Create: `internal/spotify/spotify.go` (OAuth `Client`: auth URL, code exchange, token refresh, now-playing, search, queue-add)
+- Create: `internal/spotify/tokenstore.go` (`SQLTokenStore` — persists the refresh token)
+- Create: `internal/spotify/requests.go` (`RequestStore` — `song_requests` insert/recent)
+- Test: `internal/spotify/spotify_test.go`, `internal/spotify/tokenstore_test.go`, `internal/spotify/requests_test.go`
+- Modify: `internal/web/server.go` (add `spotifyClient`, `requestStore`, `songRequestLimiter` fields; register routes)
+- Modify: `internal/web/server_test.go` (`testConfig()` gains `SongRequestsPerWindow`)
+- Create: `internal/web/loopback.go` (`isLoopback(r *http.Request) bool`)
+- Create: `internal/web/handlers_music.go`, `internal/web/handlers_spotify_auth.go`
+- Test: `internal/web/handlers_music_test.go`, `internal/web/handlers_spotify_auth_test.go`
 - Create: `views/music.templ`
 
 **Interfaces:**
-- Consumes: `qr.URLPayload`, `qr.PNG` (Task 6); `config.SpotifyConfig` (Task 1)
-- Produces: `spotify.Track{Name, Artists, URL string}`, `spotify.New(clientID, clientSecret, playlistURL string, cacheTTL time.Duration) (*Client, error)`, `(*Client) Tracks(ctx context.Context) ([]Track, error)`; `GET /music`, `GET /music/qr.png` routes.
+- Consumes: `store.Open`/`store.OpenMemory` (Task 11, extended here); `web.clientIP` (Task 14); `web.newRateLimiter`, `web.rateLimit`, `web.randomToken`, `rateLimitCookieName` pattern (Task 16); `config.SpotifyConfig`, `config.LimitsConfig` (Task 1, modified here)
+- Produces: `spotify.Track{URI, Name, Artists string}`, `spotify.SongRequest{...}`, `spotify.New(clientID, clientSecret, redirectURI string, tokens TokenStore, nowPlayingTTL time.Duration) *Client`, `(*Client) AuthURL(state string) string`, `(*Client) ExchangeCode(ctx, code string) error`, `(*Client) NowPlaying(ctx) (*Track, error)`, `(*Client) Search(ctx, query string) ([]Track, error)`, `(*Client) QueueTrack(ctx, uri string) error`; sentinel errors `ErrNoActiveDevice`, `ErrTokenInvalid`, `ErrRateLimited`, `ErrUpstream`; `GET /music`, `GET /music/search`, `POST /music/request`, `GET /spotify/login`, `GET /spotify/callback` routes.
 
-**No user OAuth here — client-credentials only.** This client authenticates as the *app*, not as any user, and only ever reads a public playlist. There is no refresh token to store, no callback route, no scopes tied to a person. This is the design payoff of choosing a collaborative playlist over Spotify Jam or queue control back in brainstorming — the entire OAuth surface from the original design simply doesn't exist.
+**Music is no longer a QR page.** There is no external playlist link to encode anymore — the
+page works entirely within the site. Use `HeaderStandard`, not `HeaderQR`, in
+`views/music.templ`. The site now has exactly two QR pages (Wi-Fi, Share), not three.
 
-**Note on page layout:** Music reuses the `HeaderQR` layout variant from Task 7 for its dark-mode lock — the QR is meant to be scanned off a screen (by a guest using someone else's phone or a shared tablet, or by the host holding their phone out), same as Wi-Fi and Share. Unlike those two pages, though, Music **does** carry additional content below the QR — the track list — per the spec's explicit feature description. Don't strip that back to match Wi-Fi/Share's bare minimalism; the "nothing else on the page" guidance in Task 7 was about the dark-mode lock and surrounding chrome, not a ban on this page's own required content.
+**The loopback restriction is load-bearing, not decorative.** `/spotify/login` and
+`/spotify/callback` share the site's one port with every guest-facing route. Both handlers
+must reject any request whose `RemoteAddr` is not loopback (`127.0.0.1`/`::1`) *before* doing
+anything else — a guest on the WiFi must never be able to reach the authorization flow, since
+it's the one thing on this site with account-level consequences if abused.
 
-- [ ] **Step 1: Write the failing spotify client test**
+**"Unmoderated" means no approval step — not no rate limit.** Every queue-add still goes
+through `songRequestLimiter`, same mechanism as guest book and photo uploads (Task 16). What
+"unmoderated" removes is a human approving each song before it reaches Spotify; the rate limit
+still exists to keep one enthusiastic guest from dominating the queue.
+
+- [ ] **Step 1: Write the failing schema test**
+
+```go
+// internal/store/store_test.go — add this test alongside the existing ones
+func TestOpenCreatesOAuthAndSongRequestTables(t *testing.T) {
+	dir := t.TempDir()
+	db, err := Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer db.Close()
+
+	for _, tbl := range []string{"oauth_tokens", "song_requests"} {
+		var name string
+		err := db.QueryRow(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name=?", tbl,
+		).Scan(&name)
+		if err != nil {
+			t.Errorf("table %s not found: %v", tbl, err)
+		}
+	}
+}
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `go test ./internal/store/... -run TestOpenCreatesOAuthAndSongRequestTables -v`
+Expected: FAIL — tables don't exist yet.
+
+- [ ] **Step 3: Extend the schema**
+
+Add these two tables to the `schema` const in `internal/store/store.go`, alongside the
+existing `photos`/`guestbook_entries` definitions (append, don't reorder — `CREATE TABLE IF
+NOT EXISTS` makes this safe to run against an already-migrated database):
+
+```sql
+CREATE TABLE IF NOT EXISTS oauth_tokens (
+  provider      TEXT PRIMARY KEY,
+  refresh_token TEXT NOT NULL,
+  access_token  TEXT,
+  expires_at    TEXT,
+  scopes        TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS song_requests (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  track_uri    TEXT NOT NULL,
+  track_name   TEXT NOT NULL,
+  artist_name  TEXT NOT NULL,
+  requested_by TEXT,
+  created_at   TEXT NOT NULL,
+  client_ip    TEXT NOT NULL,
+  status       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_song_requests_created ON song_requests(created_at DESC);
+```
+
+`oauth_tokens.access_token`/`expires_at` exist for schema completeness but are never written
+by this task's Go code — the access token is cached in memory only (see `spotify.Client`
+below) and recomputed via refresh on restart; only the durable `refresh_token` is persisted.
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `go test ./internal/store/... -v`
+Expected: PASS for all four tests (three existing, one new).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add internal/store
+git commit -m "Add oauth_tokens and song_requests tables"
+```
+
+- [ ] **Step 6: Update config for OAuth**
+
+Replace `SpotifyConfig` in `internal/config/config.go`:
+
+```go
+type SpotifyConfig struct {
+	ClientID               string `yaml:"client_id"`
+	ClientSecret           string `yaml:"client_secret"`
+	RedirectURI            string `yaml:"redirect_uri"`
+	NowPlayingCacheSeconds int    `yaml:"now_playing_cache_seconds"`
+}
+```
+
+Add a field to `LimitsConfig`:
+
+```go
+type LimitsConfig struct {
+	GuestbookPerWindow    int `yaml:"guestbook_per_window"`
+	PhotoUploadsPerWindow int `yaml:"photo_uploads_per_window"`
+	SongRequestsPerWindow int `yaml:"song_requests_per_window"`
+	WindowMinutes         int `yaml:"window_minutes"`
+}
+```
+
+Update the `spotify:` and `limits:` blocks in `internal/config/testdata/valid.yaml`,
+`config.example.yaml`, and `config.local.example.yaml` to match:
+
+```yaml
+spotify:
+  client_id: "test-client-id"
+  client_secret: "test-client-secret"
+  redirect_uri: "http://127.0.0.1:8080/spotify/callback"
+  now_playing_cache_seconds: 10
+limits:
+  guestbook_per_window: 2
+  photo_uploads_per_window: 30
+  song_requests_per_window: 3
+  window_minutes: 15
+```
+
+(`config.example.yaml`'s `redirect_uri` stays `http://127.0.0.1:8080/spotify/callback` even
+though the Pi serves on `:80` in production — port `8080` here is the SSH tunnel's local end,
+per the spec's OAuth setup steps, not the site's real listening port.)
+
+**Also update `config.local.yaml`** on disk (this file is gitignored and not part of any
+commit, but it's the file the dev server actually reads): add `redirect_uri:
+"http://127.0.0.1:8080/spotify/callback"` and `now_playing_cache_seconds: 10` to its
+`spotify:` block, and `song_requests_per_window: 3` to its `limits:` block. If real Spotify
+`client_id`/`client_secret` values aren't in that file yet, leave them as placeholders —
+Step 15 covers getting real ones.
+
+Run `go build ./...` and `go test ./...` to confirm nothing broke from the field rename (no
+existing test asserts on the old `PlaylistURL`/`CacheSeconds` fields by name, so this should
+be a clean rename).
+
+- [ ] **Step 7: Commit the config changes**
+
+```bash
+git add internal/config config.example.yaml config.local.example.yaml
+git commit -m "Replace Spotify client-credentials config with OAuth fields"
+```
+
+- [ ] **Step 8: Write the failing spotify client test**
 
 ```go
 // internal/spotify/spotify_test.go
@@ -4852,148 +5015,224 @@ package spotify
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 )
 
-func TestNewParsesPlaylistID(t *testing.T) {
-	c, err := New("id", "secret", "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc123", time.Minute)
-	if err != nil {
-		t.Fatalf("New: %v", err)
+// fakeTokenStore is an in-memory TokenStore for tests, avoiding any real
+// database dependency in this package's own tests.
+type fakeTokenStore struct {
+	refreshToken string
+	saveCalls    int
+}
+
+func (f *fakeTokenStore) LoadRefreshToken(ctx context.Context) (string, error) {
+	return f.refreshToken, nil
+}
+func (f *fakeTokenStore) SaveTokens(ctx context.Context, refreshToken string, updatedAt time.Time) error {
+	f.refreshToken = refreshToken
+	f.saveCalls++
+	return nil
+}
+
+func TestAuthURLIncludesScopesAndState(t *testing.T) {
+	c := New("id", "secret", "http://127.0.0.1:8080/spotify/callback", &fakeTokenStore{}, time.Second)
+	u := c.AuthURL("test-state-123")
+	if !strings.Contains(u, "state=test-state-123") {
+		t.Errorf("AuthURL = %q, want it to contain the state param", u)
 	}
-	if c.playlistID != "37i9dQZF1DXcBWIGoYBM5M" {
-		t.Errorf("playlistID = %q, want 37i9dQZF1DXcBWIGoYBM5M", c.playlistID)
+	if !strings.Contains(u, "client_id=id") {
+		t.Errorf("AuthURL = %q, want it to contain client_id", u)
 	}
 }
 
-func TestNewRejectsNonPlaylistURL(t *testing.T) {
-	if _, err := New("id", "secret", "https://example.com/not-spotify", time.Minute); err == nil {
-		t.Fatal("expected error for a URL with no /playlist/ segment")
-	}
-}
-
-// testServer fakes both the accounts token endpoint and the playlist
-// tracks endpoint behind one httptest.Server, since the client's
-// tokenURL and apiBaseURL fields are both overridable from within the
-// package for exactly this purpose.
-func testServer(t *testing.T, tracksStatus int, tracksBody string) (*httptest.Server, *int) {
+// testSpotifyServer fakes the accounts token endpoint and the three API.
+func testSpotifyServer(t *testing.T) (*httptest.Server, *[]string) {
 	t.Helper()
-	calls := 0
+	var calls []string
 	mux := http.NewServeMux()
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{"access_token": "test-token", "expires_in": 3600})
+		calls = append(calls, "token:"+r.FormValue("grant_type"))
+		json.NewEncoder(w).Encode(map[string]any{
+			"access_token": "test-access-token", "refresh_token": "test-refresh-token", "expires_in": 3600,
+		})
 	})
-	mux.HandleFunc("/playlists/", func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		w.WriteHeader(tracksStatus)
-		w.Write([]byte(tracksBody))
+	mux.HandleFunc("/me/player/currently-playing", func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, "now-playing")
+		json.NewEncoder(w).Encode(map[string]any{
+			"item": map[string]any{
+				"name": "Song A", "uri": "spotify:track:abc",
+				"artists": []map[string]any{{"name": "Artist One"}},
+			},
+		})
+	})
+	mux.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, "search:"+r.URL.Query().Get("q"))
+		json.NewEncoder(w).Encode(map[string]any{
+			"tracks": map[string]any{"items": []map[string]any{
+				{"name": "Song B", "uri": "spotify:track:def", "artists": []map[string]any{{"name": "Artist Two"}}},
+			}},
+		})
+	})
+	mux.HandleFunc("/me/player/queue", func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, "queue:"+r.URL.Query().Get("uri"))
+		w.WriteHeader(http.StatusNoContent)
 	})
 	return httptest.NewServer(mux), &calls
 }
 
-const fakeTracksJSON = `{"items":[
-	{"track":{"name":"Song A","artists":[{"name":"Artist One"}],"external_urls":{"spotify":"https://open.spotify.com/track/a"}}},
-	{"track":{"name":"Song B","artists":[{"name":"Artist Two"},{"name":"Artist Three"}],"external_urls":{"spotify":"https://open.spotify.com/track/b"}}}
-]}`
-
-func TestTracksFetchesAndParses(t *testing.T) {
-	ts, _ := testServer(t, http.StatusOK, fakeTracksJSON)
-	defer ts.Close()
-
-	c, err := New("id", "secret", "https://open.spotify.com/playlist/abc", time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
+func newTestClient(t *testing.T, ts *httptest.Server) (*Client, *fakeTokenStore) {
+	t.Helper()
+	store := &fakeTokenStore{refreshToken: "existing-refresh-token"}
+	c := New("id", "secret", "http://127.0.0.1:8080/spotify/callback", store, time.Minute)
 	c.tokenURL = ts.URL + "/token"
 	c.apiBaseURL = ts.URL
+	return c, store
+}
 
-	tracks, err := c.Tracks(context.Background())
-	if err != nil {
-		t.Fatalf("Tracks: %v", err)
+func TestExchangeCodeSavesRefreshToken(t *testing.T) {
+	ts, _ := testSpotifyServer(t)
+	defer ts.Close()
+	c, store := newTestClient(t, ts)
+	store.refreshToken = "" // no token yet, this call is the initial authorization
+
+	if err := c.ExchangeCode(context.Background(), "auth-code-123"); err != nil {
+		t.Fatalf("ExchangeCode: %v", err)
 	}
-	if len(tracks) != 2 {
-		t.Fatalf("got %d tracks, want 2", len(tracks))
-	}
-	if tracks[0].Name != "Song A" || tracks[0].Artists != "Artist One" {
-		t.Errorf("tracks[0] = %+v", tracks[0])
-	}
-	if tracks[1].Artists != "Artist Two, Artist Three" {
-		t.Errorf("tracks[1].Artists = %q, want joined artist names", tracks[1].Artists)
+	if store.refreshToken != "test-refresh-token" {
+		t.Errorf("stored refresh token = %q, want test-refresh-token", store.refreshToken)
 	}
 }
 
-func TestTracksCachesWithinTTL(t *testing.T) {
-	ts, calls := testServer(t, http.StatusOK, fakeTracksJSON)
+func TestNowPlayingFetchesAndCaches(t *testing.T) {
+	ts, calls := testSpotifyServer(t)
 	defer ts.Close()
+	c, _ := newTestClient(t, ts)
 
-	c, err := New("id", "secret", "https://open.spotify.com/playlist/abc", time.Minute)
+	track, err := c.NowPlaying(context.Background())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("NowPlaying: %v", err)
 	}
-	c.tokenURL = ts.URL + "/token"
-	c.apiBaseURL = ts.URL
+	if track == nil || track.Name != "Song A" || track.Artists != "Artist One" {
+		t.Fatalf("track = %+v", track)
+	}
 
-	ctx := context.Background()
-	if _, err := c.Tracks(ctx); err != nil {
+	if _, err := c.NowPlaying(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Tracks(ctx); err != nil {
-		t.Fatal(err)
+	nowPlayingCalls := 0
+	for _, call := range *calls {
+		if call == "now-playing" {
+			nowPlayingCalls++
+		}
 	}
-	if *calls != 1 {
-		t.Errorf("playlist endpoint called %d times, want 1 (second call should hit cache)", *calls)
+	if nowPlayingCalls != 1 {
+		t.Errorf("now-playing endpoint called %d times, want 1 (second call should hit cache)", nowPlayingCalls)
 	}
 }
 
-func TestTracksRefetchesAfterTTLExpires(t *testing.T) {
-	ts, calls := testServer(t, http.StatusOK, fakeTracksJSON)
+func TestSearchReturnsTracks(t *testing.T) {
+	ts, _ := testSpotifyServer(t)
 	defer ts.Close()
+	c, _ := newTestClient(t, ts)
 
-	c, err := New("id", "secret", "https://open.spotify.com/playlist/abc", 10*time.Millisecond)
+	tracks, err := c.Search(context.Background(), "song b")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Search: %v", err)
 	}
-	c.tokenURL = ts.URL + "/token"
-	c.apiBaseURL = ts.URL
-
-	ctx := context.Background()
-	if _, err := c.Tracks(ctx); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(20 * time.Millisecond)
-	if _, err := c.Tracks(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if *calls != 2 {
-		t.Errorf("playlist endpoint called %d times, want 2 (cache should have expired)", *calls)
+	if len(tracks) != 1 || tracks[0].Name != "Song B" || tracks[0].URI != "spotify:track:def" {
+		t.Fatalf("tracks = %+v", tracks)
 	}
 }
 
-func TestTracksPropagatesAPIFailure(t *testing.T) {
-	ts, _ := testServer(t, http.StatusTooManyRequests, `{"error":"rate limited"}`)
+func TestQueueTrackSucceeds(t *testing.T) {
+	ts, calls := testSpotifyServer(t)
 	defer ts.Close()
+	c, _ := newTestClient(t, ts)
 
-	c, err := New("id", "secret", "https://open.spotify.com/playlist/abc", time.Minute)
-	if err != nil {
-		t.Fatal(err)
+	if err := c.QueueTrack(context.Background(), "spotify:track:abc"); err != nil {
+		t.Fatalf("QueueTrack: %v", err)
 	}
-	c.tokenURL = ts.URL + "/token"
-	c.apiBaseURL = ts.URL
+	found := false
+	for _, call := range *calls {
+		if call == "queue:spotify:track:abc" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected a queue call with the requested URI")
+	}
+}
 
-	if _, err := c.Tracks(context.Background()); err == nil {
-		t.Fatal("expected an error when the playlist endpoint returns 429")
+func TestQueueTrackNoActiveDeviceReturnsSentinel(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"access_token": "t", "expires_in": 3600})
+	})
+	mux.HandleFunc("/me/player/queue", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	c, _ := newTestClient(t, ts)
+
+	err := c.QueueTrack(context.Background(), "spotify:track:abc")
+	if !errors.Is(err, ErrNoActiveDevice) {
+		t.Fatalf("err = %v, want ErrNoActiveDevice", err)
+	}
+}
+
+func TestQueueTrackRateLimitedReturnsSentinel(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"access_token": "t", "expires_in": 3600})
+	})
+	mux.HandleFunc("/me/player/queue", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	c, _ := newTestClient(t, ts)
+
+	err := c.QueueTrack(context.Background(), "spotify:track:abc")
+	if !errors.Is(err, ErrRateLimited) {
+		t.Fatalf("err = %v, want ErrRateLimited", err)
+	}
+}
+
+func TestNowPlayingNoTrackReturnsNilNotError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"access_token": "t", "expires_in": 3600})
+	})
+	mux.HandleFunc("/me/player/currently-playing", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	c, _ := newTestClient(t, ts)
+
+	track, err := c.NowPlaying(context.Background())
+	if err != nil {
+		t.Fatalf("NowPlaying: %v", err)
+	}
+	if track != nil {
+		t.Errorf("track = %+v, want nil (nothing playing)", track)
 	}
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+Add `"strings"` to this test file's imports (used by `TestAuthURLIncludesScopesAndState`).
+
+- [ ] **Step 9: Run the test to verify it fails**
 
 Run: `go test ./internal/spotify/... -v`
 Expected: FAIL — package doesn't exist yet.
 
-- [ ] **Step 3: Implement the spotify client**
+- [ ] **Step 10: Implement the OAuth client**
 
 ```go
 // internal/spotify/spotify.go
@@ -5002,7 +5241,9 @@ package spotify
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -5010,195 +5251,782 @@ import (
 	"time"
 )
 
+var (
+	ErrNoActiveDevice = errors.New("no active playback device")
+	ErrTokenInvalid   = errors.New("spotify authorization is invalid or missing")
+	ErrRateLimited    = errors.New("spotify rate limited the request")
+	ErrUpstream       = errors.New("spotify request failed")
+)
+
+// Scopes requested during the one-time host authorization. Read-currently-
+// playing and read-playback-state back the Now Playing display; modify-
+// playback-state backs queue-add.
+const Scopes = "user-read-currently-playing user-read-playback-state user-modify-playback-state"
+
 type Track struct {
+	URI     string
 	Name    string
 	Artists string
-	URL     string
 }
 
-// Client authenticates via OAuth2 client-credentials — as the app, never
-// as a user — and only reads a public playlist. There are no refresh
-// tokens and nothing user-specific to store.
+// TokenStore persists the durable refresh token across restarts. The
+// access token is never persisted — it's short-lived and cheap to
+// re-derive via refresh.
+type TokenStore interface {
+	LoadRefreshToken(ctx context.Context) (string, error) // "", nil if none saved yet
+	SaveTokens(ctx context.Context, refreshToken string, updatedAt time.Time) error
+}
+
+// Client is the one integration in this codebase that authenticates as a
+// user, not as the app — reading what's playing and controlling the
+// queue are both scoped to a real Spotify account with no app-only
+// equivalent.
 type Client struct {
-	clientID     string
-	clientSecret string
-	playlistID   string
-	httpClient   *http.Client
-	cacheTTL     time.Duration
-	tokenURL     string
-	apiBaseURL   string
+	clientID      string
+	clientSecret  string
+	redirectURI   string
+	httpClient    *http.Client
+	tokens        TokenStore
+	nowPlayingTTL time.Duration
 
-	mu       sync.Mutex
-	token    string
-	tokenExp time.Time
-	cached   []Track
-	cachedAt time.Time
+	authURL    string
+	tokenURL   string
+	apiBaseURL string
+
+	mu           sync.Mutex
+	accessToken  string
+	accessExpiry time.Time
+	nowPlaying   *Track
+	nowPlayingAt time.Time
 }
 
-func New(clientID, clientSecret, playlistURL string, cacheTTL time.Duration) (*Client, error) {
-	id, err := parsePlaylistID(playlistURL)
-	if err != nil {
-		return nil, err
-	}
+func New(clientID, clientSecret, redirectURI string, tokens TokenStore, nowPlayingTTL time.Duration) *Client {
 	return &Client{
-		clientID: clientID, clientSecret: clientSecret, playlistID: id,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
-		cacheTTL:   cacheTTL,
-		tokenURL:   "https://accounts.spotify.com/api/token",
-		apiBaseURL: "https://api.spotify.com/v1",
-	}, nil
+		clientID: clientID, clientSecret: clientSecret, redirectURI: redirectURI,
+		httpClient:    &http.Client{Timeout: 10 * time.Second},
+		tokens:        tokens,
+		nowPlayingTTL: nowPlayingTTL,
+		authURL:       "https://accounts.spotify.com/authorize",
+		tokenURL:      "https://accounts.spotify.com/api/token",
+		apiBaseURL:    "https://api.spotify.com/v1",
+	}
 }
 
-func parsePlaylistID(playlistURL string) (string, error) {
-	u, err := url.Parse(playlistURL)
-	if err != nil {
-		return "", fmt.Errorf("spotify: parsing playlist url %q: %w", playlistURL, err)
+// AuthURL builds the URL the host visits, via the loopback tunnel, to
+// begin the one-time authorization. state is a random value the caller
+// must verify unchanged on callback, to prevent CSRF.
+func (c *Client) AuthURL(state string) string {
+	v := url.Values{
+		"client_id":     {c.clientID},
+		"response_type": {"code"},
+		"redirect_uri":  {c.redirectURI},
+		"scope":         {Scopes},
+		"state":         {state},
 	}
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	for i, p := range parts {
-		if p == "playlist" && i+1 < len(parts) {
-			return parts[i+1], nil
-		}
-	}
-	return "", fmt.Errorf("spotify: no /playlist/<id> segment found in %q", playlistURL)
+	return c.authURL + "?" + v.Encode()
 }
 
-// Tracks returns the playlist's current tracks, serving from an
-// in-memory cache when younger than cacheTTL so a room full of guests
-// refreshing the page doesn't hammer the API.
-func (c *Client) Tracks(ctx context.Context) ([]Track, error) {
-	c.mu.Lock()
-	if c.cached != nil && time.Now().Before(c.cachedAt.Add(c.cacheTTL)) {
-		tracks := c.cached
-		c.mu.Unlock()
-		return tracks, nil
-	}
-	c.mu.Unlock()
+type tokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
+}
 
-	tracks, err := c.fetchTracks(ctx)
+func (c *Client) postForm(ctx context.Context, endpoint string, form url.Values) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
-
-	c.mu.Lock()
-	c.cached = tracks
-	c.cachedAt = time.Now()
-	c.mu.Unlock()
-	return tracks, nil
+	req.SetBasicAuth(c.clientID, c.clientSecret)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, body)
+	}
+	return body, nil
 }
 
-func (c *Client) getToken(ctx context.Context) (string, error) {
+// ExchangeCode trades an authorization code from the OAuth callback for
+// tokens and persists the refresh token. Called exactly once, during the
+// host's one-time setup (or again if the refresh token is ever revoked).
+func (c *Client) ExchangeCode(ctx context.Context, code string) error {
+	body, err := c.postForm(ctx, c.tokenURL, url.Values{
+		"grant_type":   {"authorization_code"},
+		"code":         {code},
+		"redirect_uri": {c.redirectURI},
+	})
+	if err != nil {
+		return fmt.Errorf("spotify: exchanging code: %w", err)
+	}
+	var resp tokenResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("spotify: decoding token exchange response: %w", err)
+	}
+	if resp.RefreshToken == "" {
+		return fmt.Errorf("spotify: token exchange returned no refresh token")
+	}
+
 	c.mu.Lock()
-	if c.token != "" && time.Now().Before(c.tokenExp) {
-		tok := c.token
+	c.accessToken = resp.AccessToken
+	c.accessExpiry = time.Now().Add(time.Duration(resp.ExpiresIn-30) * time.Second)
+	c.mu.Unlock()
+
+	return c.tokens.SaveTokens(ctx, resp.RefreshToken, time.Now().UTC())
+}
+
+// getAccessToken returns a valid access token, refreshing via the stored
+// refresh token if the cached one is missing or expired.
+func (c *Client) getAccessToken(ctx context.Context) (string, error) {
+	c.mu.Lock()
+	if c.accessToken != "" && time.Now().Before(c.accessExpiry) {
+		tok := c.accessToken
 		c.mu.Unlock()
 		return tok, nil
 	}
 	c.mu.Unlock()
 
-	form := url.Values{"grant_type": {"client_credentials"}}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL, strings.NewReader(form.Encode()))
+	refreshToken, err := c.tokens.LoadRefreshToken(ctx)
 	if err != nil {
-		return "", fmt.Errorf("spotify: building token request: %w", err)
+		return "", fmt.Errorf("spotify: loading refresh token: %w", err)
 	}
-	req.SetBasicAuth(c.clientID, c.clientSecret)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("spotify: token request: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("spotify: token request returned status %d", resp.StatusCode)
+	if refreshToken == "" {
+		return "", fmt.Errorf("spotify: no refresh token saved yet: %w", ErrTokenInvalid)
 	}
 
-	var body struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
+	body, err := c.postForm(ctx, c.tokenURL, url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {refreshToken},
+	})
+	if err != nil {
+		return "", fmt.Errorf("spotify: refreshing token: %w: %w", err, ErrTokenInvalid)
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", fmt.Errorf("spotify: decoding token response: %w", err)
+	var resp tokenResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return "", fmt.Errorf("spotify: decoding refresh response: %w", err)
 	}
 
 	c.mu.Lock()
-	c.token = body.AccessToken
-	c.tokenExp = time.Now().Add(time.Duration(body.ExpiresIn-30) * time.Second)
+	c.accessToken = resp.AccessToken
+	c.accessExpiry = time.Now().Add(time.Duration(resp.ExpiresIn-30) * time.Second)
 	c.mu.Unlock()
-	return body.AccessToken, nil
+
+	// Spotify may rotate the refresh token; persist it if a new one came back.
+	if resp.RefreshToken != "" {
+		if err := c.tokens.SaveTokens(ctx, resp.RefreshToken, time.Now().UTC()); err != nil {
+			return "", fmt.Errorf("spotify: saving rotated refresh token: %w", err)
+		}
+	}
+
+	return resp.AccessToken, nil
 }
 
-func (c *Client) fetchTracks(ctx context.Context) ([]Track, error) {
-	token, err := c.getToken(ctx)
+// NowPlaying returns the currently-playing track, cached for
+// nowPlayingTTL so a room full of guests loading the page doesn't
+// hammer the API. Returns (nil, nil) when nothing is playing — that is
+// not an error condition.
+func (c *Client) NowPlaying(ctx context.Context) (*Track, error) {
+	c.mu.Lock()
+	if c.nowPlaying != nil && time.Now().Before(c.nowPlayingAt.Add(c.nowPlayingTTL)) {
+		np := c.nowPlaying
+		c.mu.Unlock()
+		return np, nil
+	}
+	c.mu.Unlock()
+
+	token, err := c.getAccessToken(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	endpoint := fmt.Sprintf(
-		"%s/playlists/%s/tracks?fields=items(track(name,artists(name),external_urls(spotify)))&limit=50",
-		c.apiBaseURL, c.playlistID,
-	)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.apiBaseURL+"/me/player/currently-playing", nil)
 	if err != nil {
-		return nil, fmt.Errorf("spotify: building playlist request: %w", err)
+		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
-
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("spotify: playlist request: %w", err)
+		return nil, fmt.Errorf("spotify: now-playing request: %w: %w", err, ErrUpstream)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNoContent {
+		c.mu.Lock()
+		c.nowPlaying = nil
+		c.nowPlayingAt = time.Now()
+		c.mu.Unlock()
+		return nil, nil
+	}
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, ErrRateLimited
+	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("spotify: playlist request returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("spotify: now-playing status %d: %w", resp.StatusCode, ErrUpstream)
 	}
 
 	var body struct {
-		Items []struct {
-			Track struct {
+		Item struct {
+			Name    string `json:"name"`
+			URI     string `json:"uri"`
+			Artists []struct {
+				Name string `json:"name"`
+			} `json:"artists"`
+		} `json:"item"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, fmt.Errorf("spotify: decoding now-playing: %w", err)
+	}
+
+	names := make([]string, 0, len(body.Item.Artists))
+	for _, a := range body.Item.Artists {
+		names = append(names, a.Name)
+	}
+	track := &Track{URI: body.Item.URI, Name: body.Item.Name, Artists: strings.Join(names, ", ")}
+
+	c.mu.Lock()
+	c.nowPlaying = track
+	c.nowPlayingAt = time.Now()
+	c.mu.Unlock()
+
+	return track, nil
+}
+
+// Search returns up to 8 matching tracks for a guest's query.
+func (c *Client) Search(ctx context.Context, query string) ([]Track, error) {
+	token, err := c.getAccessToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint := fmt.Sprintf("%s/search?q=%s&type=track&limit=8", c.apiBaseURL, url.QueryEscape(query))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("spotify: search request: %w: %w", err, ErrUpstream)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, ErrRateLimited
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("spotify: search status %d: %w", resp.StatusCode, ErrUpstream)
+	}
+
+	var body struct {
+		Tracks struct {
+			Items []struct {
+				URI     string `json:"uri"`
 				Name    string `json:"name"`
 				Artists []struct {
 					Name string `json:"name"`
 				} `json:"artists"`
-				ExternalURLs struct {
-					Spotify string `json:"spotify"`
-				} `json:"external_urls"`
-			} `json:"track"`
-		} `json:"items"`
+			} `json:"items"`
+		} `json:"tracks"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, fmt.Errorf("spotify: decoding playlist response: %w", err)
+		return nil, fmt.Errorf("spotify: decoding search response: %w", err)
 	}
 
-	tracks := make([]Track, 0, len(body.Items))
-	for _, item := range body.Items {
-		names := make([]string, 0, len(item.Track.Artists))
-		for _, a := range item.Track.Artists {
+	tracks := make([]Track, 0, len(body.Tracks.Items))
+	for _, item := range body.Tracks.Items {
+		names := make([]string, 0, len(item.Artists))
+		for _, a := range item.Artists {
 			names = append(names, a.Name)
 		}
-		tracks = append(tracks, Track{
-			Name:    item.Track.Name,
-			Artists: strings.Join(names, ", "),
-			URL:     item.Track.ExternalURLs.Spotify,
-		})
+		tracks = append(tracks, Track{URI: item.URI, Name: item.Name, Artists: strings.Join(names, ", ")})
 	}
 	return tracks, nil
 }
+
+// QueueTrack adds uri to the active device's playback queue — the
+// unmoderated part of "unmoderated queue requests." No approval step
+// happens before this call.
+func (c *Client) QueueTrack(ctx context.Context, uri string) error {
+	token, err := c.getAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+
+	endpoint := fmt.Sprintf("%s/me/player/queue?uri=%s", c.apiBaseURL, url.QueryEscape(uri))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("spotify: queue request: %w: %w", err, ErrUpstream)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		return ErrNoActiveDevice
+	case http.StatusTooManyRequests:
+		return ErrRateLimited
+	default:
+		return fmt.Errorf("spotify: queue status %d: %w", resp.StatusCode, ErrUpstream)
+	}
+}
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [ ] **Step 11: Run the tests to verify they pass**
 
 Run: `go test ./internal/spotify/... -v`
-Expected: PASS for all six tests.
+Expected: PASS for all eight tests.
 
-- [ ] **Step 5: Commit the spotify package**
+- [ ] **Step 12: Write the token store and request store, with tests**
+
+```go
+// internal/spotify/tokenstore_test.go
+package spotify
+
+import (
+	"context"
+	"testing"
+
+	"homesite/internal/store"
+)
+
+func TestSQLTokenStoreRoundTrips(t *testing.T) {
+	db, err := store.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	ts := NewSQLTokenStore(db)
+	ctx := context.Background()
+
+	got, err := ts.LoadRefreshToken(ctx)
+	if err != nil {
+		t.Fatalf("LoadRefreshToken (empty): %v", err)
+	}
+	if got != "" {
+		t.Errorf("LoadRefreshToken on empty table = %q, want empty string", got)
+	}
+
+	if err := ts.SaveTokens(ctx, "refresh-abc", timeNow()); err != nil {
+		t.Fatalf("SaveTokens: %v", err)
+	}
+	got, err = ts.LoadRefreshToken(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "refresh-abc" {
+		t.Errorf("LoadRefreshToken = %q, want refresh-abc", got)
+	}
+
+	// Saving again must update, not duplicate — the table holds exactly one row.
+	if err := ts.SaveTokens(ctx, "refresh-def", timeNow()); err != nil {
+		t.Fatalf("second SaveTokens: %v", err)
+	}
+	got, err = ts.LoadRefreshToken(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "refresh-def" {
+		t.Errorf("LoadRefreshToken after update = %q, want refresh-def", got)
+	}
+}
+```
+
+Add a tiny `timeNow` test helper (kept separate from stdlib `time.Now` only so the test
+reads clearly — no mocking involved):
+```go
+// internal/spotify/testhelpers_test.go
+package spotify
+
+import "time"
+
+func timeNow() time.Time { return time.Now().UTC() }
+```
+
+Run: `go test ./internal/spotify/... -run TestSQLTokenStore -v` — expect FAIL (`NewSQLTokenStore` undefined), then implement:
+
+```go
+// internal/spotify/tokenstore.go
+package spotify
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
+)
+
+// SQLTokenStore persists exactly one row — the Spotify refresh token
+// from the host's one-time authorization.
+type SQLTokenStore struct {
+	db *sql.DB
+}
+
+func NewSQLTokenStore(db *sql.DB) *SQLTokenStore {
+	return &SQLTokenStore{db: db}
+}
+
+func (s *SQLTokenStore) LoadRefreshToken(ctx context.Context) (string, error) {
+	var token string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT refresh_token FROM oauth_tokens WHERE provider = 'spotify'`,
+	).Scan(&token)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("spotify: loading refresh token: %w", err)
+	}
+	return token, nil
+}
+
+func (s *SQLTokenStore) SaveTokens(ctx context.Context, refreshToken string, updatedAt time.Time) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO oauth_tokens (provider, refresh_token, scopes, updated_at)
+		VALUES ('spotify', ?, ?, ?)
+		ON CONFLICT(provider) DO UPDATE SET refresh_token = excluded.refresh_token, updated_at = excluded.updated_at`,
+		refreshToken, Scopes, updatedAt.Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("spotify: saving refresh token: %w", err)
+	}
+	return nil
+}
+```
+
+Run: `go test ./internal/spotify/... -v` — expect PASS for the token store test alongside
+the client tests from Step 11.
+
+Now the request store, following the same pattern as `guestbook.Store`:
+
+```go
+// internal/spotify/requests_test.go
+package spotify
+
+import (
+	"context"
+	"testing"
+
+	"homesite/internal/store"
+)
+
+func TestRequestStoreInsertAndRecent(t *testing.T) {
+	db, err := store.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	rs := NewRequestStore(db)
+	ctx := context.Background()
+
+	if _, err := rs.Insert(ctx, SongRequest{
+		TrackURI: "spotify:track:abc", TrackName: "Song A", ArtistName: "Artist One",
+		CreatedAt: "2026-07-27T20:00:00Z", ClientIP: "192.168.1.10", Status: "queued",
+	}); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	if _, err := rs.Insert(ctx, SongRequest{
+		TrackURI: "spotify:track:def", TrackName: "Song B", ArtistName: "Artist Two",
+		CreatedAt: "2026-07-27T20:01:00Z", ClientIP: "192.168.1.11", Status: "failed",
+	}); err != nil {
+		t.Fatalf("Insert (failed status): %v", err)
+	}
+
+	recent, err := rs.Recent(ctx, 10)
+	if err != nil {
+		t.Fatalf("Recent: %v", err)
+	}
+	if len(recent) != 1 || recent[0].TrackName != "Song A" {
+		t.Fatalf("Recent = %+v, want only the queued entry", recent)
+	}
+}
+```
+
+```go
+// internal/spotify/requests.go
+package spotify
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
+
+type SongRequest struct {
+	ID          int64
+	TrackURI    string
+	TrackName   string
+	ArtistName  string
+	RequestedBy string
+	CreatedAt   string
+	ClientIP    string
+	Status      string // "queued" | "failed"
+}
+
+// RequestStore is not a moderation queue — nothing here is approved
+// before reaching Spotify. It exists so a failed queue-add has a
+// debugging trail and "who requested that" is answerable.
+type RequestStore struct {
+	db *sql.DB
+}
+
+func NewRequestStore(db *sql.DB) *RequestStore {
+	return &RequestStore{db: db}
+}
+
+func (s *RequestStore) Insert(ctx context.Context, r SongRequest) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `
+		INSERT INTO song_requests (track_uri, track_name, artist_name, requested_by, created_at, client_ip, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		r.TrackURI, r.TrackName, r.ArtistName, r.RequestedBy, r.CreatedAt, r.ClientIP, r.Status,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("spotify: recording song request: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+// Recent returns the most recently successfully-queued requests, newest
+// first — shown on the Music page so guests can see what's already been
+// added and avoid duplicates.
+func (s *RequestStore) Recent(ctx context.Context, limit int) ([]SongRequest, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, track_uri, track_name, artist_name, requested_by, created_at, client_ip, status
+		FROM song_requests WHERE status = 'queued' ORDER BY created_at DESC LIMIT ?`, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("spotify: listing recent requests: %w", err)
+	}
+	defer rows.Close()
+
+	var out []SongRequest
+	for rows.Next() {
+		var r SongRequest
+		var requestedBy sql.NullString
+		if err := rows.Scan(&r.ID, &r.TrackURI, &r.TrackName, &r.ArtistName, &requestedBy, &r.CreatedAt, &r.ClientIP, &r.Status); err != nil {
+			return nil, fmt.Errorf("spotify: scanning song request: %w", err)
+		}
+		r.RequestedBy = requestedBy.String
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+```
+
+- [ ] **Step 13: Run the full package's tests to verify everything passes**
+
+Run: `go test ./internal/spotify/... -v`
+Expected: PASS for all eleven tests (client, token store, request store combined).
+
+- [ ] **Step 14: Commit the spotify package**
 
 ```bash
 git add internal/spotify
-git commit -m "Add Spotify client-credentials client for reading playlist tracks"
+git commit -m "Add Spotify OAuth client, token store, and request store"
 ```
 
-- [ ] **Step 6: Write the templ view for the Music page**
+- [ ] **Step 15: Register a real Spotify app and get real credentials**
+
+This step needs a human — there is no automated substitute for registering an application
+with a third party. At [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard),
+create an app, set the redirect URI to exactly `http://127.0.0.1:8080/spotify/callback`, and
+copy the resulting `client_id`/`client_secret` into `config.local.yaml`'s `spotify:` block
+(this file is gitignored — never commit real credentials). The actual OAuth authorization
+(visiting `/spotify/login` and approving scopes) happens later, in Step 24, once the routes
+exist to serve it.
+
+- [ ] **Step 16: Write the loopback-restriction helper**
+
+```go
+// internal/web/loopback.go
+package web
+
+import "net"
+import "net/http"
+
+// isLoopback reports whether r originated from 127.0.0.1 or ::1. Used to
+// gate /spotify/login and /spotify/callback, which share the site's one
+// port with every guest-facing route but must never be guest-reachable.
+func isLoopback(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+```
+
+(Combine the two `import` lines into one parenthesized block when writing the file — shown
+separately above only for readability in this plan.)
+
+- [ ] **Step 17: Write the failing OAuth route test**
+
+```go
+// internal/web/handlers_spotify_auth_test.go
+package web
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestSpotifyLoginRejectsNonLoopback(t *testing.T) {
+	s := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/spotify/login", nil)
+	req.RemoteAddr = "203.0.113.5:54321" // a real, non-loopback address
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 for a non-loopback caller", rec.Code)
+	}
+}
+
+func TestSpotifyLoginRedirectsForLoopback(t *testing.T) {
+	s := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/spotify/login", nil)
+	req.RemoteAddr = "127.0.0.1:54321"
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusFound {
+		t.Fatalf("status = %d, want 302 redirect to Spotify's authorize endpoint", rec.Code)
+	}
+	loc := rec.Header().Get("Location")
+	if loc == "" {
+		t.Fatal("expected a Location header pointing at Spotify's authorize endpoint")
+	}
+}
+
+func TestSpotifyCallbackRejectsNonLoopback(t *testing.T) {
+	s := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/spotify/callback?code=abc&state=xyz", nil)
+	req.RemoteAddr = "203.0.113.5:54321"
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 for a non-loopback caller", rec.Code)
+	}
+}
+```
+
+- [ ] **Step 18: Run the tests to verify they fail**
+
+Run: `go test ./internal/web/... -run TestSpotify -v`
+Expected: FAIL — routes 404 unconditionally (they don't exist yet, so even the
+loopback-allowed test also fails, which is expected at this point).
+
+- [ ] **Step 19: Wire the Spotify client, request store, and rate limiter into `Server`**
+
+Add fields to the `Server` struct in `internal/web/server.go`:
+```go
+	spotifyClient      *spotify.Client
+	requestStore       *spotify.RequestStore
+	songRequestLimiter *rateLimiter
+```
+
+In `New`, after the existing rate limiter construction (Task 16), add:
+```go
+	tokenStore := spotify.NewSQLTokenStore(db)
+	s.spotifyClient = spotify.New(
+		cfg.Spotify.ClientID, cfg.Spotify.ClientSecret, cfg.Spotify.RedirectURI,
+		tokenStore, time.Duration(cfg.Spotify.NowPlayingCacheSeconds)*time.Second,
+	)
+	s.requestStore = spotify.NewRequestStore(db)
+	s.songRequestLimiter = newRateLimiter(cfg.Limits.SongRequestsPerWindow, windowDur)
+```
+(add `"homesite/internal/spotify"` to `server.go`'s imports; `windowDur` already exists from
+Task 16's rate limiter wiring — reuse it, don't redeclare)
+
+**Unlike the old client-credentials design, `spotifyClient` is never nil here** — OAuth
+construction can't fail synchronously the way playlist-URL parsing could, since there's
+nothing to validate until an actual API call is attempted. A missing/invalid refresh token
+surfaces as `ErrTokenInvalid` from individual calls, handled per-request in the handlers
+below, not at construction time.
+
+Register the routes in `registerPageRoutes`:
+```go
+	s.mux.HandleFunc("GET /music", s.handleMusicPage)
+	s.mux.HandleFunc("GET /music/search", s.handleMusicSearch)
+	s.mux.HandleFunc("POST /music/request", s.rateLimit(s.songRequestLimiter, "music-request-rl-message", s.handleMusicRequest))
+	s.mux.HandleFunc("GET /spotify/login", s.handleSpotifyLogin)
+	s.mux.HandleFunc("GET /spotify/callback", s.handleSpotifyCallback)
+```
+
+Update `testConfig()` in `internal/web/server_test.go` to include the new limit, alongside
+the ones Task 16 already added:
+```go
+	cfg.Limits = config.LimitsConfig{GuestbookPerWindow: 2, PhotoUploadsPerWindow: 30, SongRequestsPerWindow: 3, WindowMinutes: 15}
+```
+
+- [ ] **Step 20: Implement the OAuth route handlers**
+
+```go
+// internal/web/handlers_spotify_auth.go
+package web
+
+import (
+	"log"
+	"net/http"
+)
+
+func (s *Server) handleSpotifyLogin(w http.ResponseWriter, r *http.Request) {
+	if !isLoopback(r) {
+		http.NotFound(w, r)
+		return
+	}
+	state := randomToken()
+	http.SetCookie(w, &http.Cookie{
+		Name: "spotify_oauth_state", Value: state, Path: "/spotify", MaxAge: 300, HttpOnly: true,
+	})
+	http.Redirect(w, r, s.spotifyClient.AuthURL(state), http.StatusFound)
+}
+
+func (s *Server) handleSpotifyCallback(w http.ResponseWriter, r *http.Request) {
+	if !isLoopback(r) {
+		http.NotFound(w, r)
+		return
+	}
+	cookie, err := r.Cookie("spotify_oauth_state")
+	if err != nil || r.URL.Query().Get("state") != cookie.Value {
+		http.Error(w, "state mismatch — go back to /spotify/login and try again", http.StatusBadRequest)
+		return
+	}
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "authorization was not granted: "+r.URL.Query().Get("error"), http.StatusBadRequest)
+		return
+	}
+	if err := s.spotifyClient.ExchangeCode(r.Context(), code); err != nil {
+		log.Printf("web: spotify code exchange failed: %v", err)
+		http.Error(w, "authorization failed — check the server logs", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte("<h1>Spotify connected</h1><p>You can close this tab.</p>"))
+}
+```
+
+`randomToken()` already exists in `internal/web/ratelimit.go` (Task 16) — this reuses it
+rather than redefining a second random-string helper.
+
+- [ ] **Step 21: Run the OAuth route tests to verify they pass**
+
+Run: `go test ./internal/web/... -run TestSpotify -v`
+Expected: PASS for all three.
+
+- [ ] **Step 22: Write the Music page templ views**
 
 ```templ
 // views/music.templ
@@ -5206,58 +6034,166 @@ package views
 
 import "homesite/internal/spotify"
 
-templ MusicPage(qrSrc, playlistURL string, tracks []spotify.Track, tracksErr bool) {
-	@Layout("Music Requests", HeaderQR, musicBody(qrSrc, playlistURL, tracks, tracksErr))
+templ MusicPage(nowPlaying *spotify.Track, nowPlayingErr bool, recent []spotify.SongRequest) {
+	@Layout("Music Requests", HeaderStandard, musicBody(nowPlaying, nowPlayingErr, recent))
 }
 
-templ musicBody(qrSrc, playlistURL string, tracks []spotify.Track, tracksErr bool) {
+templ musicBody(nowPlaying *spotify.Track, nowPlayingErr bool, recent []spotify.SongRequest) {
 	<h1>Music Requests</h1>
-	<p>Scan to open our collaborative playlist and add a song.</p>
-	<div class="qr-card">
-		<img src={ qrSrc } alt="Playlist QR code" width="320" height="320"/>
-		<a href={ templ.URL(playlistURL) }>Open in Spotify</a>
+	<div class="now-playing">
+		if nowPlayingErr {
+			<p class="quiet-note">Can't reach Spotify right now.</p>
+		} else if nowPlaying == nil {
+			<p class="quiet-note">Nothing's playing yet.</p>
+		} else {
+			<p>Now playing: <strong>{ nowPlaying.Name }</strong> — { nowPlaying.Artists }</p>
+		}
 	</div>
-	<h2>On the playlist now</h2>
-	if tracksErr {
-		<p class="quiet-note">Can't load the list right now.</p>
-	} else if len(tracks) == 0 {
-		<p class="quiet-note">Nothing added yet — be the first.</p>
-	} else {
+	<input type="search" name="q" placeholder="Search for a song"
+		hx-get="/music/search" hx-trigger="keyup changed delay:300ms" hx-target="#search-results"/>
+	<div id="search-results"></div>
+	<div id="music-request-rl-message"></div>
+	if len(recent) > 0 {
+		<h2>Recently added</h2>
 		<ul class="track-list">
-			for _, t := range tracks {
-				<li>{ t.Name } — { t.Artists }</li>
+			for _, r := range recent {
+				<li>{ r.TrackName } — { r.ArtistName }</li>
 			}
 		</ul>
 	}
 }
-```
 
-- [ ] **Step 7: Modify `Server` to construct the Spotify client**
-
-Add the field to the `Server` struct in `internal/web/server.go`:
-```go
-	spotifyClient *spotify.Client
-```
-
-In `New`, after wiring the rate limiters, add:
-```go
-	spotifyClient, err := spotify.New(cfg.Spotify.ClientID, cfg.Spotify.ClientSecret, cfg.Spotify.PlaylistURL, time.Duration(cfg.Spotify.CacheSeconds)*time.Second)
-	if err != nil {
-		log.Printf("web: spotify client not configured: %v", err)
+templ SearchResults(tracks []spotify.Track) {
+	if len(tracks) == 0 {
+		<p class="quiet-note">No matches — try the artist name.</p>
+	} else {
+		for _, t := range tracks {
+			<form hx-post="/music/request" hx-target="#search-results" hx-swap="innerHTML">
+				<input type="hidden" name="uri" value={ t.URI }/>
+				<input type="hidden" name="name" value={ t.Name }/>
+				<input type="hidden" name="artist" value={ t.Artists }/>
+				<button type="submit">{ t.Name } — { t.Artists }</button>
+			</form>
+		}
 	}
-	s.spotifyClient = spotifyClient
+}
+
+templ SearchResultsError(message string) {
+	<p class="quiet-note">{ message }</p>
+}
+
+templ RequestResult(success bool, message string) {
+	<p class={ templ.KV("request-success", success), templ.KV("request-failure", !success) }>{ message }</p>
+}
 ```
-(add `"log"` and `"homesite/internal/spotify"` to `server.go`'s imports)
 
-**This is deliberate:** a malformed or absent playlist URL logs and leaves `spotifyClient` `nil` — it does not stop the server from starting. The Music page's QR is built directly from `cfg.Spotify.PlaylistURL` (see the handler below), never from the client, so the QR renders regardless of whether the client constructed successfully. Only the track list depends on the client.
+- [ ] **Step 23: Implement the music handlers**
 
-Register the routes in `registerPageRoutes`:
 ```go
-	s.mux.HandleFunc("GET /music", s.handleMusicPage)
-	s.mux.HandleFunc("GET /music/qr.png", s.handleMusicQRPng)
+// internal/web/handlers_music.go
+package web
+
+import (
+	"errors"
+	"log"
+	"net/http"
+	"time"
+
+	"homesite/internal/spotify"
+	"homesite/views"
+)
+
+func (s *Server) handleMusicPage(w http.ResponseWriter, r *http.Request) {
+	nowPlaying, err := s.spotifyClient.NowPlaying(r.Context())
+	nowPlayingErr := err != nil
+	if err != nil {
+		log.Printf("web: now-playing error: %v", err)
+	}
+
+	recent, err := s.requestStore.Recent(r.Context(), 10)
+	if err != nil {
+		log.Printf("web: recent requests error: %v", err)
+	}
+
+	render(w, r, views.MusicPage(nowPlaying, nowPlayingErr, recent))
+}
+
+func (s *Server) handleMusicSearch(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	if q == "" {
+		render(w, r, views.SearchResults(nil))
+		return
+	}
+	tracks, err := s.spotifyClient.Search(r.Context(), q)
+	if err != nil {
+		log.Printf("web: search error: %v", err)
+		render(w, r, views.SearchResultsError(spotifyErrorMessage(err)))
+		return
+	}
+	render(w, r, views.SearchResults(tracks))
+}
+
+func (s *Server) handleMusicRequest(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "could not parse form", http.StatusBadRequest)
+		return
+	}
+	uri := r.PostFormValue("uri")
+	name := r.PostFormValue("name")
+	artist := r.PostFormValue("artist")
+	nickname := r.PostFormValue("nickname")
+	ip := clientIP(r)
+
+	err := s.spotifyClient.QueueTrack(r.Context(), uri)
+	status := "queued"
+	message := "Added to the queue!"
+	if err != nil {
+		status = "failed"
+		message = spotifyErrorMessage(err)
+		log.Printf("web: queue error: %v", err)
+	}
+
+	if _, insertErr := s.requestStore.Insert(r.Context(), spotify.SongRequest{
+		TrackURI: uri, TrackName: name, ArtistName: artist, RequestedBy: nickname,
+		CreatedAt: time.Now().UTC().Format(time.RFC3339), ClientIP: ip, Status: status,
+	}); insertErr != nil {
+		log.Printf("web: recording song request: %v", insertErr)
+	}
+
+	render(w, r, views.RequestResult(err == nil, message))
+}
+
+func spotifyErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, spotify.ErrNoActiveDevice):
+		return "Nothing's playing yet — ask the host to start the music 🎵"
+	case errors.Is(err, spotify.ErrTokenInvalid):
+		return "Song requests are down right now"
+	case errors.Is(err, spotify.ErrRateLimited):
+		return "Spotify's throttling us — try again in a minute"
+	default:
+		return "Couldn't reach Spotify, try again"
+	}
+}
 ```
 
-- [ ] **Step 8: Write the failing handler test**
+- [ ] **Step 24: Run the tests to verify they pass**
+
+Run:
+```bash
+templ generate
+go test ./internal/web/... -v
+```
+Expected: PASS for every test in the package, including the OAuth route tests and the
+existing music-page test (which needs updating — see Step 25).
+
+- [ ] **Step 25: Update the old music-page test to match the new page**
+
+`internal/web/handlers_music_test.go` (if it was created against the old client-credentials
+design in an earlier draft of this plan) needs replacing — the old
+`TestMusicPageRendersWithoutSpotifyClient`/`TestMusicQRPngServesImage` tests assumed a
+`spotifyClient` that could be `nil` and a `/music/qr.png` route that no longer exists. Replace
+that file's contents with:
 
 ```go
 // internal/web/handlers_music_test.go
@@ -5270,11 +6206,7 @@ import (
 	"testing"
 )
 
-func TestMusicPageRendersWithoutSpotifyClient(t *testing.T) {
-	// testConfig() leaves Spotify.PlaylistURL empty, so New() logs a
-	// construction failure and leaves spotifyClient nil — the page must
-	// still render the QR (built from raw config, not the client) and
-	// degrade the track list gracefully rather than 500.
+func TestMusicPageRenders(t *testing.T) {
 	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/music", nil)
 	rec := httptest.NewRecorder()
@@ -5282,87 +6214,51 @@ func TestMusicPageRendersWithoutSpotifyClient(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "/music/qr.png") {
-		t.Error("expected the page to reference the QR image route regardless of client state")
-	}
-	if !strings.Contains(rec.Body.String(), "Can't load the list") {
-		t.Error("expected graceful degradation message when no Spotify client is configured")
+	// testConfig() has no real Spotify credentials, so NowPlaying will
+	// fail against the real API — the page must degrade gracefully, not 500.
+	if !strings.Contains(rec.Body.String(), "Music Requests") {
+		t.Error("expected the page heading to render")
 	}
 }
 
-func TestMusicQRPngServesImage(t *testing.T) {
+func TestMusicSearchWithEmptyQueryReturnsNoResults(t *testing.T) {
 	s := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/music/qr.png", nil)
+	req := httptest.NewRequest(http.MethodGet, "/music/search", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/png" {
-		t.Errorf("Content-Type = %q, want image/png", ct)
-	}
 }
 ```
 
-- [ ] **Step 9: Run the test to verify it fails**
+Run `go test ./internal/web/... -v` again to confirm the replacement test passes alongside
+everything else.
 
-Run: `go test ./internal/web/... -run TestMusic -v`
-Expected: FAIL — routes 404.
-
-- [ ] **Step 10: Implement the handlers**
-
-```go
-// internal/web/handlers_music.go
-package web
-
-import (
-	"log"
-	"net/http"
-
-	"homesite/internal/qr"
-	"homesite/internal/spotify"
-	"homesite/views"
-)
-
-func (s *Server) handleMusicPage(w http.ResponseWriter, r *http.Request) {
-	var tracks []spotify.Track
-	tracksErr := true
-	if s.spotifyClient != nil {
-		t, err := s.spotifyClient.Tracks(r.Context())
-		if err != nil {
-			log.Printf("web: spotify tracks error: %v", err)
-		} else {
-			tracks = t
-			tracksErr = false
-		}
-	}
-	render(w, r, views.MusicPage("/music/qr.png", s.cfg.Spotify.PlaylistURL, tracks, tracksErr))
-}
-
-func (s *Server) handleMusicQRPng(w http.ResponseWriter, r *http.Request) {
-	writePNG(w, qr.URLPayload(s.cfg.Spotify.PlaylistURL))
-}
-```
-
-- [ ] **Step 11: Run the tests to verify they pass**
-
-Run:
-```bash
-templ generate
-go test ./internal/web/... -v
-```
-Expected: PASS for both new tests, and every prior test in the package still green.
-
-- [ ] **Step 12: Set up a real playlist and verify locally**
-
-Create a Spotify playlist, toggle **Collaborative** on in the app, make it **public**, and copy its URL into `config.local.yaml`'s `spotify.playlist_url`. Register an app at [developer.spotify.com](https://developer.spotify.com/dashboard) for `client_id`/`client_secret` (no redirect URI needed — client-credentials doesn't use one). Restart the dev server and open `/music` on a phone: confirm the QR opens the playlist in the Spotify app, and that the track list matches what's actually on the playlist.
-
-- [ ] **Step 13: Commit**
+- [ ] **Step 26: Commit**
 
 ```bash
 git add internal/web views
-git commit -m "Add Music Requests page with client-credentials playlist reads"
+git commit -m "Add Spotify OAuth routes, now-playing, search, and unmoderated queue requests"
 ```
+
+- [ ] **Step 27: Complete the one-time OAuth authorization and verify locally**
+
+This is a manual step — there is no way to automate a real Spotify authorization grant, and
+it should not be attempted by an automated implementer. With real `client_id`/`client_secret`
+in `config.local.yaml` (from Step 15) and `go run ./cmd/homesite -config config.local.yaml`
+running:
+
+1. Open `http://127.0.0.1:8080/spotify/login` directly in a browser (no SSH tunnel needed
+   locally — the dev server already listens on `127.0.0.1:8080`).
+2. Approve the requested scopes on Spotify's consent screen.
+3. Confirm the callback shows "Spotify connected."
+4. Start playback on a real device logged into the same Spotify account, then open `/music`
+   on a phone and confirm the now-playing track matches.
+5. Search for a song, tap a result, and confirm it lands in the real queue on the playing
+   device.
+6. Manually hit `POST /music/request` (or tap a result) four times in under 15 minutes and
+   confirm the fourth attempt shows the rate-limit message, not a fifth queue-add.
 
 ---
 
@@ -5370,25 +6266,50 @@ git commit -m "Add Music Requests page with client-credentials playlist reads"
 
 Every prior task built structurally complete, functionally correct pages with minimal styling (Task 7's `site.css` covers layout mechanics: cards, the menu overlay, tap targets, QR-page dark-mode lock). The spec deliberately defers real visual execution to this point: *"Detailed visual execution is deferred to implementation, where the `frontend-design` skill applies."* This task is that pass, across all ten pages at once so the site reads as one designed system rather than ten separately-styled pages.
 
+**This task now also acquires the Butler headline font**, added to the spec after Task 7 shipped with Lora alone. Butler is a free, high-contrast display serif (Fabian De Smet) — used for headlines only, never body text, where its thin hairlines would hurt readability. Lora remains exactly as Task 7 wired it, carrying every other block of text on the page.
+
 **Files:**
 - Modify: `static/css/site.css`
 - Modify: any `views/*.templ` files whose markup needs additional structure to support the new visual design (e.g., wrapping elements for imagery treatments)
+- Create: `static/fonts/Butler-Black.woff2` (or whichever weight the design settles on for display headings — Black or Extra Bold are the two heaviest cuts in the free family), `static/fonts/Butler-LICENSE.txt`
 
 **Interfaces:**
 - Consumes: every page and component from Tasks 7, 9, 10, 14, 15, 17
 - Produces: no new interfaces — this task changes appearance, not behavior. Every test from Tasks 1–17 must still pass unmodified afterward, since none of them assert on CSS or visual layout.
 
-- [ ] **Step 1: Invoke the frontend-design skill with the spec's visual brief**
+- [ ] **Step 1: Acquire Butler**
+
+Download from [Font Squirrel](https://www.fontsquirrel.com/fonts/butler) or [the designer's own site](https://www.fabiandesmet.com/portfolio/butler-font/) — both distribute genuine woff2 files directly, no TTF-to-woff2 conversion needed (unlike Lora's acquisition in Task 7, which needed the per-weight `css2` API workaround). Pick one heavy display weight (Black or Extra Bold) for headlines; the free family also ships Regular through Ultra Light and a parallel stencil line, none of which this design needs.
+
+**Read the bundled license file before shipping it** — different distribution channels frame Butler's terms differently (the designer's own site describes it loosely as "free for commercial use"; some mirrors attach formal CC BY-SA 4.0 terms, which technically requires attribution and share-alike). Save whichever license file the actual downloaded zip contains as `static/fonts/Butler-LICENSE.txt`, and if it turns out to be CC BY-SA, add a one-line attribution credit somewhere reasonable (a site footer or an `ABOUT` note) — costs nothing, closes the gap between the two framings.
+
+Place the woff2 file at `static/fonts/Butler-Black.woff2` (adjust the name to match whichever weight was actually downloaded).
+
+- [ ] **Step 2: Invoke the frontend-design skill with the spec's visual brief**
 
 Invoke `frontend-design` with this brief, derived directly from the spec's Visual Direction section:
 
-> Design pass for "Brivin Household," a mobile-first home party site (ten pages: Welcome, Wi-Fi, Coffee Menu, Cocktail Menu, Refreshments, Music Requests, Upload Photos, Guest Book, Meet the Cats, Share). Typeface is Lora (self-hosted, already wired in `static/css/site.css`) — warm and editorial rather than austere; the personality should come from typographic choices, not the font alone: large scale jumps between heading levels, tight negative tracking on large headings, normal tracking on body text, a restrained palette (warm off-white ground, near-black ink, one saturated accent color — currently a rust/terracotta placeholder), generous whitespace, a single-column measure capped around 60 characters, and full-bleed imagery (cat photos, gallery thumbnails) contrasted against tight text blocks. Layouts are designed at 390px width first and allowed to breathe on larger screens — every tap target at least 44px, used one-handed, standing up, in imperfect lighting. Honor `prefers-color-scheme` dark mode everywhere **except** the three QR pages (Wi-Fi, Music, Share), which are hard-locked to a white background regardless of viewer theme — that lock already exists in `site.css` via the `.qr-page` class and must not be loosened. The vibe the site's owner asked for is "hip and trendy" — lean into confident typography and a considered accent color rather than generic Bootstrap-y defaults.
+> Design pass for "Brivin Household," a mobile-first home party site (ten pages: Welcome, Wi-Fi, Coffee Menu, Cocktail Menu, Refreshments, Music Requests, Upload Photos, Guest Book, Meet the Cats, Share). Two typefaces, both self-hosted as woff2: **Butler** (a high-contrast display serif) for headlines only — large scale jumps between heading levels, tight negative tracking, used at 24px and up, never for body copy since its hairlines hurt readability at small sizes — and **Lora** (already wired in `static/css/site.css` from an earlier pass) carrying every other block of text: menu items, cat bios, guest book entries, form labels, navigation. The personality should come from this pairing and from typographic decisions, not from either font alone: a restrained palette (warm off-white ground, near-black ink, one saturated accent color — currently a rust/terracotta placeholder), generous whitespace, a single-column measure capped around 60 characters, and full-bleed imagery (cat photos, gallery thumbnails) contrasted against tight text blocks. Layouts are designed at 390px width first and allowed to breathe on larger screens — every tap target at least 44px, used one-handed, standing up, in imperfect lighting. Honor `prefers-color-scheme` dark mode everywhere **except** the two QR pages (Wi-Fi, Share — Music is no longer a QR page, it works entirely within the site), which are hard-locked to a white background regardless of viewer theme — that lock already exists in `site.css` via the `.qr-page` class and must not be loosened. The vibe the site's owner asked for is "hip and trendy" — lean into confident display typography for headlines and a considered accent color rather than generic Bootstrap-y defaults.
 
-- [ ] **Step 2: Apply the resulting design to `static/css/site.css` and any `views/*.templ` markup it requires**
+- [ ] **Step 3: Wire the `@font-face` rule for Butler**
+
+Add to `static/css/site.css`, alongside the existing Lora `@font-face` blocks from Task 7:
+```css
+@font-face {
+	font-family: "Butler";
+	src: url("/static/fonts/Butler-Black.woff2") format("woff2");
+	font-weight: 900;
+	font-style: normal;
+	font-display: swap;
+}
+```
+(adjust `font-weight` and the filename to match whichever cut was actually downloaded in Step 1)
+
+- [ ] **Step 4: Apply the resulting design to `static/css/site.css` and any `views/*.templ` markup it requires**
 
 Follow the frontend-design skill's output. Where it calls for new wrapping elements (e.g., an image treatment needing an extra `<div>`), edit the relevant `.templ` file directly — but do not change any component's exported name, parameter list, or the text content handler tests assert on (page headings, menu item names, guest book messages, etc.). This is a styling pass; it must not change what any test in `internal/web` checks for.
 
-- [ ] **Step 3: Regenerate templ and run the full test suite to confirm nothing broke**
+- [ ] **Step 5: Regenerate templ and run the full test suite to confirm nothing broke**
 
 Run:
 ```bash
@@ -5397,15 +6318,15 @@ go test ./...
 ```
 Expected: PASS for every test written in Tasks 1–17. If a test fails, it means a markup change altered text content or structure a test depends on — fix the markup to preserve that content, don't weaken the test.
 
-- [ ] **Step 4: Review the redesigned site on a real phone, page by page**
+- [ ] **Step 6: Review the redesigned site on a real phone, page by page**
 
-Run `go run ./cmd/homesite -config config.local.yaml` and open every one of the ten routes on a phone at `http://<mac-ip>:8080/`. Specifically re-check the three QR pages still scan correctly and still show a white background regardless of the phone's system dark-mode setting — a design pass is exactly the kind of change that could accidentally regress that lock.
+Run `go run ./cmd/homesite -config config.local.yaml` and open every one of the ten routes on a phone at `http://<mac-ip>:8080/`. Specifically re-check the two QR pages (Wi-Fi, Share) still scan correctly and still show a white background regardless of the phone's system dark-mode setting — a design pass is exactly the kind of change that could accidentally regress that lock. Also confirm Butler renders only on headings, never on paragraph-length text, and that it actually loaded (a fallback to the body serif on every heading usually means a wrong path or font-weight mismatch between the `@font-face` rule and wherever the design applies `font-family: "Butler"`).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add static views
-git commit -m "Apply visual design pass: typography, palette, and imagery treatment"
+git commit -m "Apply visual design pass: Butler headlines, Lora body, palette, and imagery treatment"
 ```
 
 ---
