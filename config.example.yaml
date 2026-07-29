@@ -23,6 +23,9 @@ limits:
   photo_uploads_per_window: 30
   song_requests_per_window: 3
   window_minutes: 15
+admin:
+  username: "YOUR_ADMIN_USERNAME"
+  password: "YOUR_ADMIN_PASSWORD"
 content_dir: "/srv/homesite/content"
 data_dir: "/srv/homesite/data"
 uploads_dir: "/srv/homesite/uploads"

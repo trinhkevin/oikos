@@ -1,0 +1,69 @@
+// views/admin.templ
+package views
+
+import (
+	"fmt"
+
+	"homesite/internal/guestbook"
+	"homesite/internal/photos"
+)
+
+templ AdminPage(photoList []photos.Photo, entries []guestbook.Entry) {
+	@Layout("Moderation", adminBody(photoList, entries))
+}
+
+templ adminBody(photoList []photos.Photo, entries []guestbook.Entry) {
+	<h1>Moderation</h1>
+	<p class="quiet-note">Archive hides something from the site without deleting it. Delete is permanent.</p>
+	<h2>Photos</h2>
+	if len(photoList) == 0 {
+		<p class="quiet-note">No photos yet.</p>
+	} else {
+		<div class="admin-photo-grid">
+			for _, p := range photoList {
+				@AdminPhotoItem(p)
+			}
+		</div>
+	}
+	<h2>Guest Book</h2>
+	if len(entries) == 0 {
+		<p class="quiet-note">No entries yet.</p>
+	} else {
+		<div class="admin-entry-list">
+			for _, e := range entries {
+				@AdminGuestbookItem(e)
+			}
+		</div>
+	}
+}
+
+templ AdminPhotoItem(p photos.Photo) {
+	<div class={ "admin-photo", templ.KV("admin-hidden", p.Hidden) } id={ fmt.Sprintf("admin-photo-%d", p.ID) }>
+		<img src={ "/uploads/" + p.ThumbPath } alt="" loading="lazy"/>
+		<div class="admin-actions">
+			if p.Hidden {
+				<span class="admin-badge">Archived</span>
+				<button type="button" hx-post={ fmt.Sprintf("/admin/photos/%d/unhide", p.ID) } hx-target={ fmt.Sprintf("#admin-photo-%d", p.ID) } hx-swap="outerHTML">Unarchive</button>
+			} else {
+				<button type="button" hx-post={ fmt.Sprintf("/admin/photos/%d/hide", p.ID) } hx-target={ fmt.Sprintf("#admin-photo-%d", p.ID) } hx-swap="outerHTML">Archive</button>
+			}
+			<button type="button" class="admin-delete" hx-post={ fmt.Sprintf("/admin/photos/%d/delete", p.ID) } hx-target={ fmt.Sprintf("#admin-photo-%d", p.ID) } hx-swap="outerHTML" hx-confirm="Permanently delete this photo?">Delete</button>
+		</div>
+	</div>
+}
+
+templ AdminGuestbookItem(e guestbook.Entry) {
+	<div class={ "admin-entry", templ.KV("admin-hidden", e.Hidden) } id={ fmt.Sprintf("admin-entry-%d", e.ID) }>
+		<p class="guestbook-name">{ e.Name }</p>
+		<p class="guestbook-message">{ e.Message }</p>
+		<div class="admin-actions">
+			if e.Hidden {
+				<span class="admin-badge">Hidden</span>
+				<button type="button" hx-post={ fmt.Sprintf("/admin/guestbook/%d/unhide", e.ID) } hx-target={ fmt.Sprintf("#admin-entry-%d", e.ID) } hx-swap="outerHTML">Unhide</button>
+			} else {
+				<button type="button" hx-post={ fmt.Sprintf("/admin/guestbook/%d/hide", e.ID) } hx-target={ fmt.Sprintf("#admin-entry-%d", e.ID) } hx-swap="outerHTML">Hide</button>
+			}
+			<button type="button" class="admin-delete" hx-post={ fmt.Sprintf("/admin/guestbook/%d/delete", e.ID) } hx-target={ fmt.Sprintf("#admin-entry-%d", e.ID) } hx-swap="outerHTML" hx-confirm="Permanently delete this entry?">Delete</button>
+		</div>
+	</div>
+}

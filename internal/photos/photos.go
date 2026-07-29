@@ -113,6 +113,67 @@ func (s *Store) Get(ctx context.Context, id int64) (Photo, error) {
 	return p, nil
 }
 
+// ListForModeration returns every photo (hidden or not), newest first,
+// for the admin panel — unlike List, which only ever shows guests what's
+// currently visible.
+func (s *Store) ListForModeration(ctx context.Context) ([]Photo, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, file_id, path, thumb_path, byte_size, width, height, source, caption, created_at, hidden, client_ip
+		FROM photos ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("photos: listing for moderation: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Photo
+	for rows.Next() {
+		var p Photo
+		var hidden int
+		var caption sql.NullString
+		if err := rows.Scan(&p.ID, &p.FileID, &p.Path, &p.ThumbPath, &p.ByteSize, &p.Width, &p.Height, &p.Source, &caption, &p.CreatedAt, &hidden, &p.ClientIP); err != nil {
+			return nil, fmt.Errorf("photos: scanning row: %w", err)
+		}
+		p.Caption = caption.String
+		p.Hidden = hidden != 0
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// SetHidden archives (hidden=true) or restores (hidden=false) a photo.
+// An archived photo is excluded from List and blocked from direct
+// /uploads/ access (see static_files.go's IsHidden check) without
+// deleting anything — the moderation equivalent of a soft delete.
+func (s *Store) SetHidden(ctx context.Context, id int64, hidden bool) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE photos SET hidden = ? WHERE id = ?`, boolToInt(hidden), id)
+	if err != nil {
+		return fmt.Errorf("photos: setting hidden=%v for %d: %w", hidden, id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("photos: checking rows affected for %d: %w", id, err)
+	}
+	if n == 0 {
+		return fmt.Errorf("photos: no photo with id %d", id)
+	}
+	return nil
+}
+
+// Delete permanently removes a photo's row and returns it so the caller
+// can also remove its files from disk — the store package doesn't know
+// the uploads directory root, so file cleanup is the caller's job.
+func (s *Store) Delete(ctx context.Context, id int64) (Photo, error) {
+	p, err := s.Get(ctx, id)
+	if err != nil {
+		return Photo{}, err
+	}
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM photos WHERE id = ?`, id); err != nil {
+		return Photo{}, fmt.Errorf("photos: deleting %d: %w", id, err)
+	}
+	return p, nil
+}
+
 // IsHidden reports whether relPath (or its thumbnail counterpart)
 // belongs to a photo explicitly marked hidden via moderation. A path
 // with no matching row is NOT considered hidden — fail open for

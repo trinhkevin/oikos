@@ -30,6 +30,9 @@ templ NowPlayingFragment(nowPlaying *spotify.Track, nowPlayingErr bool) {
 		} else if nowPlaying == nil {
 			<p class="quiet-note">No tunes right now — save your best requests, the next party's always around the corner 🎉</p>
 		} else {
+			if nowPlaying.AlbumArtURL != "" {
+				<img class="now-playing-glow" src={ nowPlaying.AlbumArtURL } alt="" aria-hidden="true"/>
+			}
 			<p class="cat-meta">Now Playing</p>
 			<div class="now-playing-track">
 				if nowPlaying.AlbumArtURL != "" {

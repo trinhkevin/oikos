@@ -193,8 +193,21 @@ main {
 	height: 72px;
 	width: auto;
 	margin: 0 auto 1.1rem;
+	animation: fade-up 0.6s ease both;
 }
-.hero .eyebrow { margin-bottom: 0; }
+.hero .eyebrow {
+	margin-bottom: 0;
+	animation: fade-up 0.6s ease 0.15s both;
+}
+/* The welcome page's one entrance moment: wordmark, then the eyebrow,
+   then the nav cards stagger in one after another (see .nav-card
+   below) -- the first thing every guest sees after scanning the WiFi
+   QR, so it's the one place a small orchestrated moment earns its
+   keep. Respects prefers-reduced-motion via the site-wide override. */
+@keyframes fade-up {
+	from { opacity: 0; transform: translateY(10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
 
 .prose {
 	max-width: var(--measure);
@@ -237,8 +250,19 @@ hr.rule {
 	text-decoration: none;
 	color: var(--ink);
 	transition: transform 0.15s ease, border-color 0.15s ease;
+	animation: fade-up 0.5s ease both;
 }
 .nav-card:active { transform: scale(0.98); }
+.card-grid .nav-card:nth-child(1) { animation-delay: 0.28s; }
+.card-grid .nav-card:nth-child(2) { animation-delay: 0.34s; }
+.card-grid .nav-card:nth-child(3) { animation-delay: 0.40s; }
+.card-grid .nav-card:nth-child(4) { animation-delay: 0.46s; }
+.card-grid .nav-card:nth-child(5) { animation-delay: 0.52s; }
+.card-grid .nav-card:nth-child(6) { animation-delay: 0.58s; }
+.card-grid .nav-card:nth-child(7) { animation-delay: 0.64s; }
+.card-grid .nav-card:nth-child(8) { animation-delay: 0.70s; }
+.card-grid .nav-card:nth-child(9) { animation-delay: 0.76s; }
+.card-grid .nav-card:nth-child(n+10) { animation-delay: 0.82s; }
 
 .nav-card-title {
 	font-family: "Cormorant Garamond", Georgia, serif;
@@ -629,11 +653,34 @@ progress {
 
 /* ---- Music ---- */
 .now-playing {
+	position: relative;
+	overflow: hidden;
 	padding: 1rem 1.1rem;
 	background: var(--card-bg);
 	border: 1px solid var(--line);
 	border-radius: var(--radius-md);
 	margin-bottom: 1.25rem;
+}
+/* Ambient backdrop sampled from the track's own album art -- ​the one
+   spot on the site meant to feel "alive," to match the equalizer bars.
+   Blurred and scaled past the card's edges so no hard blur ring shows,
+   sitting under everything else via z-index rather than the DOM's
+   natural paint order. */
+.now-playing-glow {
+	position: absolute;
+	inset: -25%;
+	width: 150%;
+	height: 150%;
+	object-fit: cover;
+	filter: blur(32px) saturate(1.6) brightness(0.92);
+	opacity: 0.32;
+	z-index: 0;
+	pointer-events: none;
+}
+.now-playing > .cat-meta,
+.now-playing-track {
+	position: relative;
+	z-index: 1;
 }
 .now-playing-track {
 	display: flex;
@@ -1126,3 +1173,66 @@ input[type="search"].music-search-input {
 	border-radius: var(--radius-sm);
 	font-size: 0.9rem;
 }
+
+/* ---- Moderation (/admin) ---- */
+.admin-photo-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 1rem;
+	margin: 1.25rem 0 2rem;
+}
+@media (min-width: 480px) {
+	.admin-photo-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.admin-photo {
+	border: 1px solid var(--line);
+	border-radius: var(--radius-md);
+	overflow: hidden;
+	background: var(--card-bg);
+}
+.admin-photo img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 1 / 1;
+	object-fit: cover;
+}
+.admin-photo.admin-hidden img { opacity: 0.4; }
+.admin-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	padding: 0.6rem;
+}
+.admin-actions button {
+	min-height: 40px;
+	padding: 0.45rem 0.8rem;
+	font-size: 0.8rem;
+}
+.admin-badge {
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.7rem;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+.admin-delete {
+	background: transparent;
+	color: var(--accent);
+	border: 1px solid var(--accent);
+}
+
+.admin-entry-list {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25rem;
+	margin: 1.25rem 0 2rem;
+}
+.admin-entry {
+	padding: 1rem;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-md);
+	background: var(--card-bg);
+}
+.admin-entry.admin-hidden { opacity: 0.55; }

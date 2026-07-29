@@ -13,6 +13,7 @@ type Config struct {
 	Spotify    SpotifyConfig `yaml:"spotify"`
 	Photos     PhotosConfig  `yaml:"photos"`
 	Limits     LimitsConfig  `yaml:"limits"`
+	Admin      AdminConfig   `yaml:"admin"`
 	ContentDir string        `yaml:"content_dir"`
 	DataDir    string        `yaml:"data_dir"`
 	UploadsDir string        `yaml:"uploads_dir"`
@@ -51,6 +52,15 @@ type LimitsConfig struct {
 	PhotoUploadsPerWindow int `yaml:"photo_uploads_per_window"`
 	SongRequestsPerWindow int `yaml:"song_requests_per_window"`
 	WindowMinutes         int `yaml:"window_minutes"`
+}
+
+// AdminConfig gates /admin (moderation: archive/delete photos and guest
+// book entries) behind HTTP Basic Auth. Empty Username/Password means
+// admin is disabled — handled explicitly in the auth middleware as
+// fail-closed, not an accidental empty-string bypass.
+type AdminConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 func Load(path string) (*Config, error) {
