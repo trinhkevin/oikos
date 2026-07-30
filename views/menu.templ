@@ -15,7 +15,10 @@ templ menuBody(menu content.Menu) {
 		<section class="menu-section">
 			<h2>{ section.Name }</h2>
 			for _, item := range section.Items {
-				<article class="menu-item">
+				<article class={ "menu-item", templ.KV("menu-item-featured", item.Featured) }>
+					if item.Featured {
+						<span class="eyebrow menu-item-featured-label">Signature</span>
+					}
 					<h3>{ item.Name }</h3>
 					if item.Description != "" {
 						<p>{ item.Description }</p>

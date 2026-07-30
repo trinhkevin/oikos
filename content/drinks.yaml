@@ -2,14 +2,12 @@ title: Drinks
 sections:
   - name: Cocktails
     items:
-      - name: Old Fashioned
-      - name: Vodka Soda
-      - name: Lemon Drop
-      - name: Whiskey Sour
-      - name: Margarita
       - name: Lychee Ginger Vodka Spritz
         description: Floral, refreshing, slightly spicy, not too sweet.
         ingredients: [Vodka, Lychee syrup, Fresh lemon juice, Ginger syrup, Lychees]
+        featured: true
+      - name: Old Fashioned
+      - name: Vodka Soda
   - name: Beer & Seltzer
     items:
       - name: Sapporo
@@ -23,8 +21,9 @@ sections:
         description: Still or sparkling.
   - name: Coffee
     items:
-      - name: Pour Over
-        description: Ask Kevin about the current bean selection.
       - name: Matcha Latte
         tags: [vanilla, strawberry, banana]
       - name: Vietnamese Coffee
+      - name: Pour Over
+        description: Ask Kevin about the current bean selection.
+      - name: French Press

@@ -380,6 +380,20 @@ hr.rule {
 	border-bottom: 1px solid var(--line);
 }
 .menu-item:last-child { border-bottom: none; }
+/* A featured item (the one dish/drink Kevin's steering people toward)
+   gets a tinted card instead of just another row in the list -- the
+   same accent-soft fill used for tag pills, so it reads as "highlight"
+   rather than a whole new visual language. */
+.menu-item-featured {
+	margin: 0 -1rem 0.25rem;
+	padding: 1rem;
+	background: var(--accent-soft);
+	border-radius: var(--radius-md);
+	border-bottom: none;
+}
+.menu-item-featured-label {
+	margin-bottom: 0.3rem;
+}
 .menu-item-ingredients {
 	font-size: 0.85rem;
 	color: var(--muted);

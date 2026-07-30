@@ -19,6 +19,7 @@ type Item struct {
 	Ingredients []string `yaml:"ingredients"`
 	Tags        []string `yaml:"tags"`
 	Price       string   `yaml:"price"`
+	Featured    bool     `yaml:"featured"`
 }
 
 type MenuLoader struct {
