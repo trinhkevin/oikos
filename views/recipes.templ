@@ -1,0 +1,83 @@
+package views
+
+import "homesite/internal/content"
+
+templ RecipesIndex(recipes []content.Recipe) {
+	@Layout("Recipes", recipesIndexBody(recipes))
+}
+
+templ recipesIndexBody(recipes []content.Recipe) {
+	<h1>Recipes</h1>
+	<div class="search-bar">
+		<input
+			type="search"
+			id="recipe-search"
+			class="search-input"
+			placeholder="Search recipes"
+			autocomplete="off"
+		/>
+	</div>
+	if tags := distinctRecipeTags(recipes); len(tags) > 0 {
+		<ul class="recipe-filter-chips">
+			for _, tag := range tags {
+				<li>
+					<button type="button" class="recipe-filter-chip" data-tag={ tag }>{ tag }</button>
+				</li>
+			}
+		</ul>
+	}
+	<div class="card-grid recipe-grid" id="recipe-grid">
+		for _, recipe := range recipes {
+			<a
+				class="nav-card recipe-card"
+				href={ templ.URL("/recipes/" + recipe.Slug) }
+				data-search={ recipeSearchBlob(recipe) }
+				data-tags={ recipeTagData(recipe.Tags) }
+			>
+				<span class="nav-card-title">{ recipe.Title }</span>
+				if meta := recipeMeta(recipe); meta != "" {
+					<span class="nav-card-blurb">{ meta }</span>
+				}
+				if len(recipe.Tags) > 0 {
+					<ul class="menu-item-tags">
+						for _, tag := range recipe.Tags {
+							<li class="menu-item-tag">{ tag }</li>
+						}
+					</ul>
+				}
+			</a>
+		}
+	</div>
+	<script src="/static/js/recipes.js" defer></script>
+}
+
+templ RecipeDetail(recipe content.Recipe) {
+	@Layout(recipe.Title, recipeDetailBody(recipe))
+}
+
+templ recipeDetailBody(recipe content.Recipe) {
+	<h1>{ recipe.Title }</h1>
+	if meta := recipeMeta(recipe); meta != "" {
+		<p class="cat-meta">{ meta }</p>
+	}
+	if len(recipe.Tags) > 0 {
+		<ul class="menu-item-tags">
+			for _, tag := range recipe.Tags {
+				<li class="menu-item-tag">{ tag }</li>
+			}
+		</ul>
+	}
+	<div class="prose">
+		@templ.Raw(recipe.BodyHTML)
+	</div>
+	if recipe.SourceURL != "" {
+		<p class="cat-meta">
+			<a href={ templ.URL(recipe.SourceURL) } target="_blank" rel="noopener noreferrer">
+				View original
+				if recipe.SourceName != "" {
+					{ " (" + recipe.SourceName + ")" }
+				}
+			</a>
+		</p>
+	}
+}
