@@ -21,6 +21,7 @@ func (s *Server) registerPageRoutes() {
 	s.mux.HandleFunc("GET /share", s.handleSharePage)
 	s.mux.HandleFunc("GET /share/qr.png", s.handleShareQRPng)
 	s.mux.HandleFunc("GET /photos", s.handlePhotosPage)
+	s.mux.HandleFunc("GET /photos/new", s.handlePhotosNew)
 	s.mux.HandleFunc("POST /photos", s.rateLimit(s.photosLimiter, "photos-rl-message", s.handlePhotosUpload))
 	s.mux.HandleFunc("GET /guestbook", s.handleGuestbookPage)
 	s.mux.HandleFunc("POST /guestbook", s.rateLimit(s.guestbookLimiter, "guestbook-rl-message", s.handleGuestbookCreate))

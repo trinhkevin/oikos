@@ -58,6 +58,20 @@ func (s *Server) handlePhotosUpload(w http.ResponseWriter, r *http.Request) {
 	render(w, r, views.PhotosContent(&result, gallery, 1, false, hasMore))
 }
 
+// handlePhotosNew backs the gallery's live polling: the grid on page 1
+// hits GET /photos/new?after=<id> every 10s (see photos.templ's
+// #photo-grid hx-get) with the id of whatever photo currently renders
+// first, and this returns anything newer for the client to prepend.
+func (s *Server) handlePhotosNew(w http.ResponseWriter, r *http.Request) {
+	afterID, _ := strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)
+	newPhotos, err := s.photosStore.ListAfter(r.Context(), afterID, galleryPageSize)
+	if err != nil {
+		log.Printf("web: listing new photos after %d: %v", afterID, err)
+		newPhotos = nil
+	}
+	render(w, r, views.NewPhotos(newPhotos))
+}
+
 func (s *Server) listGalleryPage(r *http.Request, page int) (gallery []photos.Photo, hasMore bool) {
 	offset := (page - 1) * galleryPageSize
 	rows, err := s.photosStore.List(r.Context(), galleryPageSize+1, offset)

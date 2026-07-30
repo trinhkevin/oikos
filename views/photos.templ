@@ -35,7 +35,10 @@ templ photosPageBody(gallery []photos.Photo, page int, hasPrev, hasMore, showDis
 		<input type="file" id="photos-input" name="photos" accept="image/jpeg,image/png,image/webp,image/heic"
 			multiple required class="visually-hidden"/>
 		<span class="photo-upload-caption">Add photos</span>
-		<span id="photos-spinner" class="spinner htmx-indicator" aria-hidden="true"></span>
+		<span id="photos-spinner" class="upload-indicator htmx-indicator">
+			<span class="spinner" aria-hidden="true"></span>
+			<span class="upload-indicator-label">Uploading…</span>
+		</span>
 	</form>
 	<div id="photos-rl-message"></div>
 	<hr class="rule"/>
@@ -55,9 +58,18 @@ templ PhotosContent(result *UploadResult, gallery []photos.Photo, page int, hasP
 			</ul>
 		}
 	}
-	<div class="photo-grid">
+	<div
+		id="photo-grid"
+		class="photo-grid"
+		if page == 1 {
+			hx-get="/photos/new"
+			hx-trigger="every 10s"
+			hx-swap="afterbegin"
+			hx-vals="js:{after: (document.querySelector('#photo-grid [data-photo-id]')||{}).dataset?.photoId || 0}"
+		}
+	>
 		for _, p := range gallery {
-			@PhotoLightbox(fmt.Sprintf("lightbox-photo-%d", p.ID), "/uploads/"+p.ThumbPath, "/uploads/"+p.Path, "Guest photo", "photo-thumb", "")
+			@photoThumbWrap(p, false)
 		}
 	</div>
 	<nav class="pagination">
@@ -68,4 +80,26 @@ templ PhotosContent(result *UploadResult, gallery []photos.Photo, page int, hasP
 			<a href={ templ.URL(fmt.Sprintf("/photos?page=%d", page+1)) }>Older &rarr;</a>
 		}
 	</nav>
+}
+
+// NewPhotos renders just-arrived photos for #photo-grid's poll
+// (GET /photos/new?after=<id>) to prepend via hx-swap="afterbegin" --
+// the "-new" variant of photoThumbWrap gets the arrival highlight.
+templ NewPhotos(gallery []photos.Photo) {
+	for _, p := range gallery {
+		@photoThumbWrap(p, true)
+	}
+}
+
+templ photoThumbWrap(p photos.Photo, isNew bool) {
+	<div
+		if isNew {
+			class="photo-thumb-wrap photo-thumb-new"
+		} else {
+			class="photo-thumb-wrap"
+		}
+		data-photo-id={ fmt.Sprint(p.ID) }
+	>
+		@PhotoLightbox(fmt.Sprintf("lightbox-photo-%d", p.ID), "/uploads/"+p.ThumbPath, "/uploads/"+p.Path, "Guest photo", "photo-thumb", "")
+	</div>
 }

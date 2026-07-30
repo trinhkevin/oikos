@@ -163,6 +163,39 @@ func TestIsHiddenReturnsFalseForUnknownPath(t *testing.T) {
 	}
 }
 
+func TestStoreListAfterExcludesOlderAndHidden(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	mk := func(fileID string) int64 {
+		p := Photo{
+			FileID: fileID, Path: "2026-07/" + fileID + ".jpg", ThumbPath: "2026-07/" + fileID + "_thumb.jpg",
+			ByteSize: 1024, Width: 800, Height: 600, Source: "gallery",
+			CreatedAt: "2026-07-27T12:00:00Z", ClientIP: "192.168.1.10",
+		}
+		id, err := s.Insert(ctx, p)
+		if err != nil {
+			t.Fatalf("Insert: %v", err)
+		}
+		return id
+	}
+
+	oldID := mk("old")
+	newID := mk("new")
+	hiddenID := mk("hidden")
+	if err := s.SetHidden(ctx, hiddenID, true); err != nil {
+		t.Fatalf("SetHidden: %v", err)
+	}
+
+	got, err := s.ListAfter(ctx, oldID, 10)
+	if err != nil {
+		t.Fatalf("ListAfter: %v", err)
+	}
+	if len(got) != 1 || got[0].FileID != "new" {
+		t.Fatalf("ListAfter(after=%d) = %+v, want just the \"new\" photo (id %d); \"hidden\" (id %d) must be excluded", oldID, got, newID, hiddenID)
+	}
+}
+
 func TestDiskUsageBytesSumsFiles(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir+"/a.jpg", make([]byte, 100))

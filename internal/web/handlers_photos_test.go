@@ -2,6 +2,8 @@ package web
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,7 @@ import (
 	"testing"
 
 	"homesite/internal/config"
+	"homesite/internal/photos"
 	"homesite/internal/store"
 )
 
@@ -127,6 +130,46 @@ func TestPhotosPageHidesDiskWarningBelowThreshold(t *testing.T) {
 
 	if strings.Contains(rec.Body.String(), "almost full") {
 		t.Error("did not expect the disk warning banner at 10% usage with an 85% threshold")
+	}
+}
+
+// TestPhotosNewFragmentReturnsPhotosAfterID covers #photo-grid's live
+// poll (see photos.templ's hx-get on the grid): it must return only
+// photos newer than ?after=<id>, each marked for the arrival highlight,
+// and must not repeat the photo used as the "after" reference itself.
+func TestPhotosNewFragmentReturnsPhotosAfterID(t *testing.T) {
+	s := newTestServerWithPhotos(t)
+	ctx := context.Background()
+
+	mk := func(fileID string) int64 {
+		id, err := s.photosStore.Insert(ctx, photos.Photo{
+			FileID: fileID, Path: "2026-07/" + fileID + ".jpg", ThumbPath: "2026-07/" + fileID + "_thumb.jpg",
+			ByteSize: 100, Width: 10, Height: 10, Source: "gallery",
+			CreatedAt: "2026-07-27T12:00:00Z", ClientIP: "1.2.3.4",
+		})
+		if err != nil {
+			t.Fatalf("Insert: %v", err)
+		}
+		return id
+	}
+	oldID := mk("old")
+	newID := mk("new")
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/photos/new?after=%d", oldID), nil)
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, fmt.Sprintf(`data-photo-id="%d"`, newID)) {
+		t.Errorf("body = %q, want the photo newer than ?after=%d", body, oldID)
+	}
+	if strings.Contains(body, fmt.Sprintf(`data-photo-id="%d"`, oldID)) {
+		t.Errorf("body = %q, should not include the ?after reference photo itself", body)
+	}
+	if !strings.Contains(body, "photo-thumb-new") {
+		t.Error("expected the arrival-highlight class on newly polled photos")
 	}
 }
 

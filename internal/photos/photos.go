@@ -65,7 +65,27 @@ func (s *Store) List(ctx context.Context, limit, offset int) ([]Photo, error) {
 		return nil, fmt.Errorf("photos: listing: %w", err)
 	}
 	defer rows.Close()
+	return scanPhotos(rows)
+}
 
+// ListAfter returns non-hidden photos newer than afterID (newest first),
+// capped at limit -- backs the Upload Photos gallery's live polling
+// (GET /photos/new?after=<id>), so a guest watching the page sees new
+// arrivals from other guests without reloading.
+func (s *Store) ListAfter(ctx context.Context, afterID int64, limit int) ([]Photo, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, file_id, path, thumb_path, byte_size, width, height, source, caption, created_at, hidden, client_ip
+		FROM photos WHERE hidden = 0 AND id > ? ORDER BY created_at DESC, id DESC LIMIT ?`,
+		afterID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("photos: listing after %d: %w", afterID, err)
+	}
+	defer rows.Close()
+	return scanPhotos(rows)
+}
+
+func scanPhotos(rows *sql.Rows) ([]Photo, error) {
 	var out []Photo
 	for rows.Next() {
 		var p Photo

@@ -605,6 +605,20 @@ hr.rule {
 @keyframes spin {
 	to { transform: rotate(360deg); }
 }
+/* The spinner alone read as too subtle to notice mid-upload; pairing
+   it with a text label makes the in-flight state unambiguous. */
+.upload-indicator {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.upload-indicator-label {
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.78rem;
+	font-weight: 500;
+	letter-spacing: 0.05em;
+	color: var(--muted);
+}
 
 /* ---- Forms (guest book, photo upload, music search) ---- */
 form { margin: 1.5rem 0; }
@@ -1155,11 +1169,26 @@ input[type="search"].search-input {
 		padding: 0 1.25rem;
 	}
 }
+/* display:contents so wrapping each photo for a stable data-photo-id
+   anchor (read by #photo-grid's polling hx-vals, see photos.templ)
+   doesn't add a layer to the grid box tree -- .photo-thumb below is
+   still the actual grid item, exactly as before this wrapper existed. */
+.photo-thumb-wrap { display: contents; }
 .photo-thumb {
 	display: block;
 	aspect-ratio: 1 / 1;
 	overflow: hidden;
 	border-radius: var(--radius-sm);
+}
+/* A photo prepended by #photo-grid's live poll (GET /photos/new) gets
+   a brief highlight so a guest watching the page notices something
+   just arrived, rather than it silently appearing at the top. */
+.photo-thumb-new .photo-thumb {
+	animation: photo-arrive 1s ease;
+}
+@keyframes photo-arrive {
+	from { opacity: 0; transform: scale(0.92); box-shadow: 0 0 0 3px var(--accent); }
+	to { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 transparent; }
 }
 .photo-thumb img {
 	display: block;
