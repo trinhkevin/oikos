@@ -39,6 +39,41 @@ func TestStoreInsertAndList(t *testing.T) {
 	}
 }
 
+func TestStoreCountExcludesHidden(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	visible := Photo{
+		FileID: "visible1", Path: "2026-07/visible1.jpg", ThumbPath: "2026-07/visible1_thumb.jpg",
+		ByteSize: 1024, Width: 800, Height: 600, Source: "gallery",
+		CreatedAt: "2026-07-27T12:00:00Z", ClientIP: "192.168.1.10",
+	}
+	id, err := s.Insert(ctx, visible)
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	hidden := visible
+	hidden.FileID = "hidden1"
+	hidden.Path = "2026-07/hidden1.jpg"
+	hidden.ThumbPath = "2026-07/hidden1_thumb.jpg"
+	hiddenID, err := s.Insert(ctx, hidden)
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	if err := s.SetHidden(ctx, hiddenID, true); err != nil {
+		t.Fatalf("SetHidden: %v", err)
+	}
+
+	count, err := s.Count(ctx)
+	if err != nil {
+		t.Fatalf("Count: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("Count = %d, want 1 (only the non-hidden photo, id %d)", count, id)
+	}
+}
+
 func TestStoreListExcludesHidden(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

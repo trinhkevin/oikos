@@ -43,6 +43,18 @@ func (s *Store) Insert(ctx context.Context, p Photo) (int64, error) {
 	return res.LastInsertId()
 }
 
+// Count returns the number of non-hidden photos -- used by the Welcome
+// page's live "party pulse" line, where a full List would fetch every
+// column just to discard it for a number.
+func (s *Store) Count(ctx context.Context) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM photos WHERE hidden = 0`).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("photos: counting: %w", err)
+	}
+	return count, nil
+}
+
 func (s *Store) List(ctx context.Context, limit, offset int) ([]Photo, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, file_id, path, thumb_path, byte_size, width, height, source, caption, created_at, hidden, client_ip

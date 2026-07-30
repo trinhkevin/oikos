@@ -40,6 +40,30 @@ func TestCreateAndList(t *testing.T) {
 	}
 }
 
+func TestStoreCountExcludesHidden(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	if _, err := s.Create(ctx, Entry{Name: "Visible", Message: "hi", ClientIP: "1.2.3.4"}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	hiddenID, err := s.Create(ctx, Entry{Name: "Hidden", Message: "hi", ClientIP: "1.2.3.4"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := s.SetHidden(ctx, hiddenID, true); err != nil {
+		t.Fatalf("SetHidden: %v", err)
+	}
+
+	count, err := s.Count(ctx)
+	if err != nil {
+		t.Fatalf("Count: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("Count = %d, want 1 (only the non-hidden entry)", count)
+	}
+}
+
 func TestCreateRejectsEmptyName(t *testing.T) {
 	s := newTestStore(t)
 	_, err := s.Create(context.Background(), Entry{Name: "", Message: "hi", ClientIP: "1.2.3.4"})

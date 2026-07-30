@@ -139,6 +139,18 @@ func boolToInt(b bool) int {
 	return 0
 }
 
+// Count returns the number of non-hidden entries -- used by the Welcome
+// page's live "party pulse" line, where a full List would fetch every
+// column just to discard it for a number.
+func (s *Store) Count(ctx context.Context) (int, error) {
+	var count int
+	err := s.sqlDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM guestbook_entries WHERE hidden = 0`).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("guestbook: counting: %w", err)
+	}
+	return count, nil
+}
+
 func (s *Store) List(ctx context.Context) ([]Entry, error) {
 	rows, err := s.sqlDB.QueryContext(ctx, `
 		SELECT id, name, message, photo_id, created_at, hidden, client_ip

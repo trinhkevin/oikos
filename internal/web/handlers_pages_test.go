@@ -1,10 +1,13 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"homesite/internal/guestbook"
 )
 
 func TestWelcomePageRenders(t *testing.T) {
@@ -18,8 +21,37 @@ func TestWelcomePageRenders(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "Brivin Household") {
 		t.Error("expected page to contain site title")
 	}
+	if !strings.Contains(rec.Body.String(), "0 photos shared · 0 notes in the guest book") {
+		t.Error("expected the welcome page to render the party pulse line with fresh-DB zero counts")
+	}
+	if !strings.Contains(rec.Body.String(), `id="party-pulse"`) {
+		t.Error("expected the party pulse container to poll GET /welcome/pulse")
+	}
 	if !strings.Contains(rec.Body.String(), "Wi-Fi") {
 		t.Error("expected welcome hub to link to Wi-Fi")
+	}
+}
+
+// TestWelcomePulseFragmentReflectsCounts covers the polling endpoint
+// (GET /welcome/pulse) that #party-pulse refreshes from every 15s: it
+// must reflect a guest book signature made after the page's first load,
+// not just the count baked into that initial render.
+func TestWelcomePulseFragmentReflectsCounts(t *testing.T) {
+	s := newTestServer(t)
+	if _, err := s.guestbookStore.Create(context.Background(), guestbook.Entry{
+		Name: "Alex", Message: "Great party!", ClientIP: "1.2.3.4",
+	}); err != nil {
+		t.Fatalf("guestbookStore.Create: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/welcome/pulse", nil)
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "0 photos shared · 1 note in the guest book") {
+		t.Errorf("body = %q, want counts reflecting the new guest book entry", rec.Body.String())
 	}
 }
 

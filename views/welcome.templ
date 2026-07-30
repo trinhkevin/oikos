@@ -1,13 +1,25 @@
 package views
 
-templ Welcome(bodyHTML string) {
-	@Layout("Welcome", welcomeBody(bodyHTML))
+templ Welcome(bodyHTML string, photoCount, guestbookCount int) {
+	@Layout("Welcome", welcomeBody(bodyHTML, photoCount, guestbookCount))
 }
 
-templ welcomeBody(bodyHTML string) {
+templ welcomeBody(bodyHTML string, photoCount, guestbookCount int) {
 	<div class="hero">
 		<img class="hero-wordmark" src="/static/brand/wordmark.png" alt="Brivin" width="776" height="248"/>
 		<span class="eyebrow">Owned by Zeke &amp; Farah. Managed by Kevin &amp; Brianna.</span>
+		<div id="party-pulse" hx-get="/welcome/pulse" hx-trigger="every 15s" hx-swap="innerHTML">
+			@PartyPulse(photoCount, guestbookCount)
+		</div>
 	</div>
 	@CardGrid(NavItems)
+}
+
+// PartyPulse is its own fragment (not just inlined in welcomeBody) so
+// GET /welcome/pulse's polling handler can render exactly this and
+// nothing else -- same split as Music's NowPlayingFragment/QueueView.
+templ PartyPulse(photoCount, guestbookCount int) {
+	<span class="party-pulse-line">
+		{ countNoun(photoCount, "photo") } shared · { countNoun(guestbookCount, "note") } in the guest book
+	</span>
 }

@@ -9,6 +9,7 @@ import (
 
 func (s *Server) registerPageRoutes() {
 	s.mux.HandleFunc("GET /{$}", s.handleWelcome)
+	s.mux.HandleFunc("GET /welcome/pulse", s.handleWelcomePulse)
 	s.mux.HandleFunc("GET /cocktails", s.handleMenu(s.cfg.ContentDir+"/drinks.yaml"))
 	s.mux.HandleFunc("GET /refreshments", s.handleMenu(s.cfg.ContentDir+"/food.yaml"))
 	s.mux.HandleFunc("GET /entertainment", s.handleEntertainment)
@@ -45,7 +46,28 @@ func (s *Server) handleWelcome(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("web: welcome content error: %v", err)
 	}
-	render(w, r, views.Welcome(html))
+	photoCount, guestbookCount := s.partyPulseCounts(r)
+	render(w, r, views.Welcome(html, photoCount, guestbookCount))
+}
+
+// handleWelcomePulse backs the Welcome page's live-updating "party
+// pulse" line: GET /welcome/pulse polls this every 15s and swaps in
+// fresh counts, same pattern as Music's now-playing fragment.
+func (s *Server) handleWelcomePulse(w http.ResponseWriter, r *http.Request) {
+	photoCount, guestbookCount := s.partyPulseCounts(r)
+	render(w, r, views.PartyPulse(photoCount, guestbookCount))
+}
+
+func (s *Server) partyPulseCounts(r *http.Request) (photoCount, guestbookCount int) {
+	photoCount, err := s.photosStore.Count(r.Context())
+	if err != nil {
+		log.Printf("web: party pulse photo count error: %v", err)
+	}
+	guestbookCount, err = s.guestbookStore.Count(r.Context())
+	if err != nil {
+		log.Printf("web: party pulse guestbook count error: %v", err)
+	}
+	return photoCount, guestbookCount
 }
 
 func (s *Server) handleMenu(path string) http.HandlerFunc {
