@@ -51,3 +51,23 @@ func TestRecipeLoaderUnknownSlug(t *testing.T) {
 		t.Fatal("expected error for unknown slug")
 	}
 }
+
+// TestRecipeLoaderRejectsPathTraversal locks in that LoadOne refuses any
+// slug that could escape the recipes directory via filepath.Join, since
+// http.ServeMux unescapes {slug} after routing (e.g. "..%2f..%2fCLAUDE"
+// arrives here as "../../CLAUDE").
+func TestRecipeLoaderRejectsPathTraversal(t *testing.T) {
+	loader := NewRecipeLoader(NewCache(), "testdata/recipes")
+	for _, slug := range []string{
+		"../../CLAUDE",
+		"../recipes_test",
+		"foo/bar",
+		`foo\bar`,
+		"..",
+		"",
+	} {
+		if _, err := loader.LoadOne(slug); err == nil {
+			t.Errorf("LoadOne(%q) = nil error, want error rejecting traversal/invalid slug", slug)
+		}
+	}
+}

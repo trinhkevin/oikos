@@ -35,6 +35,9 @@ func NewRecipeLoader(cache *Cache, dir string) *RecipeLoader {
 }
 
 func (l *RecipeLoader) LoadOne(slug string) (Recipe, error) {
+	if slug == "" || strings.ContainsAny(slug, `/\`) || strings.Contains(slug, "..") {
+		return Recipe{}, fmt.Errorf("invalid recipe slug %q", slug)
+	}
 	path := filepath.Join(l.dir, slug+".md")
 	v, err := l.cache.Get(path, parseRecipe)
 	if err != nil {

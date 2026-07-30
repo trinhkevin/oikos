@@ -168,6 +168,19 @@ book"). Both show a CSS spinner during the request via HTMX's standard
 in a 1–2 column responsive grid, photo-led, message styled as an italic
 quote — no borders between entries, grid gap only.
 
+## Recipes (household-only, not a party-guest feature)
+
+`/recipes` (index, with client-side search/tag filtering) and
+`/recipes/{slug}` (detail) exist. Content lives in `content/recipes/*.md`
+(YAML frontmatter + markdown body), loaded via `internal/content.RecipeLoader`
+— mirrors the `Cat`/`CatLoader` pattern. This is **deliberately not** in the
+guest-facing hamburger menu (`views.NavItems` in `views/nav.templ`) — it's a
+page for the household, not party guests, and its absence from nav is
+intentional, not an oversight (`TestRecipesNotInGuestNav` locks this in).
+There's no in-app scraper or admin UI for adding recipes: the workflow is
+Kevin hands Claude a URL, and Claude fetches/cleans/writes the `.md` content
+file directly.
+
 ## Known gaps / pending
 
 - UniFi DHCP reservation + Local DNS Record for `home.local` — instructions

@@ -111,6 +111,9 @@ func TestRecipesIndexPageRenders(t *testing.T) {
 	if !strings.Contains(body, "weeknight") {
 		t.Error("expected recipes index to render at least one filter chip/tag")
 	}
+	if !strings.Contains(body, `data-tags="weeknight|pasta|vegetarian"`) {
+		t.Error("data-tags must be |-joined — static/js/recipes.js splits on |")
+	}
 }
 
 func TestRecipeDetailPageRenders(t *testing.T) {
@@ -134,6 +137,20 @@ func TestRecipeDetailUnknownSlugReturns404(t *testing.T) {
 	s.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestRecipeDetailPathTraversalReturns404 guards against a request whose
+// {slug} wildcard is crafted to escape content/recipes/ via filepath.Join
+// (Go's ServeMux unescapes {slug} after routing, so "..%2f..%2fCLAUDE"
+// arrives at the handler as "../../CLAUDE").
+func TestRecipeDetailPathTraversalReturns404(t *testing.T) {
+	s := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/recipes/..%2f..%2fCLAUDE", nil)
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 (path traversal must not escape content/recipes/)", rec.Code)
 	}
 }
 
