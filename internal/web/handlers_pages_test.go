@@ -102,8 +102,8 @@ func TestRecipesIndexPageRenders(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Weeknight Garlic Butter Pasta") {
-		t.Error("expected recipes index to list the seed recipe")
+	if !strings.Contains(body, "Beef and Broccoli+") {
+		t.Error("expected recipes index to list a recipe from the repertoire")
 	}
 	if !strings.Contains(body, `id="recipe-search"`) {
 		t.Error("expected recipes index to render the search input")
@@ -111,21 +111,21 @@ func TestRecipesIndexPageRenders(t *testing.T) {
 	if !strings.Contains(body, "weeknight") {
 		t.Error("expected recipes index to render at least one filter chip/tag")
 	}
-	if !strings.Contains(body, `data-tags="weeknight|pasta|vegetarian"`) {
+	if !strings.Contains(body, `data-tags="weeknight|beef|stir-fry"`) {
 		t.Error("data-tags must be |-joined — static/js/recipes.js splits on |")
 	}
 }
 
 func TestRecipeDetailPageRenders(t *testing.T) {
 	s := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/recipes/weeknight-garlic-butter-pasta", nil)
+	req := httptest.NewRequest(http.MethodGet, "/recipes/beef-and-broccoli", nil)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "garlic") {
+	if !strings.Contains(body, "sauce") {
 		t.Error("expected recipe detail to render ingredient/instruction text")
 	}
 }
