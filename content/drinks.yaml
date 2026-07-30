@@ -7,6 +7,9 @@ sections:
       - name: Lemon Drop
       - name: Whiskey Sour
       - name: Margarita
+      - name: Lychee Ginger Vodka Spritz
+        description: Floral, refreshing, slightly spicy, not too sweet.
+        ingredients: [Vodka, Lychee syrup, Fresh lemon juice, Ginger syrup, Lychees]
   - name: Beer & Seltzer
     items:
       - name: Sapporo
