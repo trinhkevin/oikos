@@ -13,6 +13,8 @@ func (s *Server) registerPageRoutes() {
 	s.mux.HandleFunc("GET /refreshments", s.handleMenu(s.cfg.ContentDir+"/food.yaml"))
 	s.mux.HandleFunc("GET /entertainment", s.handleEntertainment)
 	s.mux.HandleFunc("GET /cats", s.handleCatsIndex)
+	s.mux.HandleFunc("GET /recipes", s.handleRecipesIndex)
+	s.mux.HandleFunc("GET /recipes/{slug}", s.handleRecipeDetail)
 	s.mux.HandleFunc("GET /wifi", s.handleWiFiPage)
 	s.mux.HandleFunc("GET /wifi/qr.png", s.handleWiFiQRPng)
 	s.mux.HandleFunc("GET /share", s.handleSharePage)
@@ -68,3 +70,19 @@ func (s *Server) handleCatsIndex(w http.ResponseWriter, r *http.Request) {
 	render(w, r, views.CatsIndex(cats))
 }
 
+func (s *Server) handleRecipesIndex(w http.ResponseWriter, r *http.Request) {
+	recipes, err := s.recipeLoader.LoadAll()
+	if err != nil {
+		log.Printf("web: recipes index error: %v", err)
+	}
+	render(w, r, views.RecipesIndex(recipes))
+}
+
+func (s *Server) handleRecipeDetail(w http.ResponseWriter, r *http.Request) {
+	recipe, err := s.recipeLoader.LoadOne(r.PathValue("slug"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	render(w, r, views.RecipeDetail(recipe))
+}

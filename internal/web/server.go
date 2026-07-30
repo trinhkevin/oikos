@@ -21,6 +21,7 @@ type Server struct {
 	cfg                *config.Config
 	menuLoader         *content.MenuLoader
 	catLoader          *content.CatLoader
+	recipeLoader       *content.RecipeLoader
 	welcomeLoader      *content.WelcomeLoader
 	photosStore        *photos.Store
 	photosIngester     *photos.Ingester
@@ -41,6 +42,7 @@ func New(cfg *config.Config, db *sql.DB) *Server {
 		cfg:            cfg,
 		menuLoader:     content.NewMenuLoader(cache),
 		catLoader:      content.NewCatLoader(cache, filepath.Join(cfg.ContentDir, "cats")),
+		recipeLoader:   content.NewRecipeLoader(cache, filepath.Join(cfg.ContentDir, "recipes")),
 		welcomeLoader:  content.NewWelcomeLoader(cache),
 		photosStore:    photosStore,
 		photosIngester: photos.NewIngester(photosStore, cfg.Photos, cfg.UploadsDir),
