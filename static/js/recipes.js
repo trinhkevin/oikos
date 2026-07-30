@@ -4,11 +4,11 @@
 // a personal recipe list is small enough that this is plenty fast.
 (function () {
 	var searchInput = document.getElementById("recipe-search");
-	var chips = document.querySelectorAll(".recipe-filter-chip");
+	var tagSelect = document.getElementById("recipe-tag-filter");
 	var cards = document.querySelectorAll(".recipe-card");
-	var activeTag = null;
 
 	function matchesTag(card) {
+		var activeTag = tagSelect ? tagSelect.value : "";
 		if (!activeTag) return true;
 		var tags = (card.getAttribute("data-tags") || "").split("|");
 		return tags.indexOf(activeTag) !== -1;
@@ -31,20 +31,7 @@
 		searchInput.addEventListener("input", applyFilter);
 	}
 
-	chips.forEach(function (chip) {
-		chip.addEventListener("click", function () {
-			var tag = chip.getAttribute("data-tag");
-			var reactivating = activeTag !== tag;
-			chips.forEach(function (c) {
-				c.classList.remove("recipe-filter-chip-active");
-			});
-			if (reactivating) {
-				activeTag = tag;
-				chip.classList.add("recipe-filter-chip-active");
-			} else {
-				activeTag = null;
-			}
-			applyFilter();
-		});
-	});
+	if (tagSelect) {
+		tagSelect.addEventListener("change", applyFilter);
+	}
 })();

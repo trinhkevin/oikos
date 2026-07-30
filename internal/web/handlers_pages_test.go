@@ -108,8 +108,11 @@ func TestRecipesIndexPageRenders(t *testing.T) {
 	if !strings.Contains(body, `id="recipe-search"`) {
 		t.Error("expected recipes index to render the search input")
 	}
+	if !strings.Contains(body, `id="recipe-tag-filter"`) {
+		t.Error("expected recipes index to render the tag filter dropdown")
+	}
 	if !strings.Contains(body, "weeknight") {
-		t.Error("expected recipes index to render at least one filter chip/tag")
+		t.Error("expected recipes index to render at least one tag option")
 	}
 	if !strings.Contains(body, `data-tags="weeknight|beef|stir-fry"`) {
 		t.Error("data-tags must be |-joined — static/js/recipes.js splits on |")
