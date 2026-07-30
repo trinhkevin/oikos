@@ -34,8 +34,11 @@ templ recipesIndexBody(recipes []content.Recipe) {
 				data-tags={ recipeTagData(recipe.Tags) }
 			>
 				<span class="nav-card-title">{ recipe.Title }</span>
-				if meta := recipeMeta(recipe); meta != "" {
-					<span class="nav-card-blurb">{ meta }</span>
+				if recipe.Time != "" {
+					<p class="cat-meta"><strong>Cooking Time</strong> — { recipe.Time }</p>
+				}
+				if recipe.Servings != "" {
+					<p class="cat-meta"><strong>Servings</strong> — { recipe.Servings }</p>
 				}
 				if len(recipe.Tags) > 0 {
 					<ul class="menu-item-tags">
@@ -56,8 +59,11 @@ templ RecipeDetail(recipe content.Recipe) {
 
 templ recipeDetailBody(recipe content.Recipe) {
 	<h1>{ recipe.Title }</h1>
-	if meta := recipeMeta(recipe); meta != "" {
-		<p class="cat-meta">{ meta }</p>
+	if recipe.Time != "" {
+		<p class="cat-meta"><strong>Cooking Time</strong> — { recipe.Time }</p>
+	}
+	if recipe.Servings != "" {
+		<p class="cat-meta"><strong>Servings</strong> — { recipe.Servings }</p>
 	}
 	if len(recipe.Tags) > 0 {
 		<ul class="menu-item-tags">

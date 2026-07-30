@@ -5,7 +5,7 @@ source_url: https://chocolatecoveredkatie.com/banana-oatmeal-cookies-3-ingredien
 source_name: Chocolate Covered Katie
 tags: [vegan, gluten-free, healthy snack, kid-friendly, dessert]
 servings: "12 cookies"
-time: "20 minutes"
+time: "20 min"
 ---
 ## Ingredients
 - 1 cup rolled oats or quick oats

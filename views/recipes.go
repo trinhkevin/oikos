@@ -41,15 +41,3 @@ func distinctRecipeTags(recipes []content.Recipe) []string {
 	return tags
 }
 
-// recipeMeta renders the compact "20 min · serves 4" line, omitting
-// either half when its field is blank, and returning "" if both are.
-func recipeMeta(r content.Recipe) string {
-	var parts []string
-	if r.Time != "" {
-		parts = append(parts, r.Time)
-	}
-	if r.Servings != "" {
-		parts = append(parts, "serves "+r.Servings)
-	}
-	return strings.Join(parts, " · ")
-}

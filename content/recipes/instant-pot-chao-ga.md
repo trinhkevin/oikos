@@ -4,8 +4,8 @@ slug: instant-pot-chao-ga
 source_url: https://balancewithjess.com/instant-pot-chao-ga/
 source_name: Balance with Jess
 tags: [vietnamese, soup, instant-pot, chicken, rice-porridge]
-servings: "4 servings"
-time: "40 minutes total (10 min prep, 30 min cook)"
+servings: "4"
+time: "Prep 10 min · Cook 30 min"
 ---
 ## Ingredients
 - ½–¾ lb boneless skinless chicken breast (about 1–2 breasts)

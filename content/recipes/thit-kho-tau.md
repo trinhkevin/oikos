@@ -4,8 +4,8 @@ slug: thit-kho-tau
 source_url: https://vickypham.com/blog/braised-pork-and-boiled-eggs-in-coconut-juice-thit-kho-tau/
 source_name: Vicky Pham
 tags: [vietnamese, pork, braise, eggs, coconut]
-servings: "6 servings"
-time: "Prep 30 minutes; Cook 1 hour 20 minutes; Total 1 hour 50 minutes"
+servings: "6"
+time: "Prep 30 min · Cook 1 hr 20 min"
 ---
 ## Ingredients
 - 2 1/2 lbs pork belly

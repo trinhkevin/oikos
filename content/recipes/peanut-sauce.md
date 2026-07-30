@@ -2,6 +2,8 @@
 title: Peanut Sauce
 slug: peanut-sauce
 tags: [sauce, thai, condiment]
+time: "10 min"
+servings: "1 cup"
 ---
 ## Ingredients
 - 1 cup milk

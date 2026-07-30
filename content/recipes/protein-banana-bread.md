@@ -5,7 +5,7 @@ source_url: https://chocolatecoveredkatie.com/protein-banana-bread/
 source_name: Chocolate Covered Katie
 tags: [banana bread, protein, breakfast, baking, healthy]
 servings: "10-12 slices"
-time: "50 minutes (10 min prep, 40 min bake)"
+time: "Prep 10 min · Bake 40 min"
 ---
 ## Ingredients
 - 1 1/2 cup white, spelt, or oat flour

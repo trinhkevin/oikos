@@ -4,8 +4,8 @@ slug: thai-red-curry-with-vegetables
 source_url: https://cookieandkate.com/thai-red-curry-recipe/
 source_name: Cookie and Kate
 tags: [thai, curry, vegan, vegetables, weeknight]
-servings: "4 servings"
-time: "40 minutes (10 min prep, 30 min cook)"
+servings: "4"
+time: "Prep 10 min · Cook 30 min"
 ---
 ## Ingredients
 - 1 ¼ cups brown jasmine rice or long-grain brown rice, rinsed

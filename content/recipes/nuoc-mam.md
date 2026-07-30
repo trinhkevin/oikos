@@ -2,6 +2,8 @@
 title: Nuoc Mam
 slug: nuoc-mam
 tags: [sauce, vietnamese, condiment]
+time: "15 min"
+servings: "6 cups"
 ---
 ## Ingredients
 - 3 cups water

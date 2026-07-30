@@ -4,8 +4,8 @@ slug: pho-recipe-forked-spoon
 source_url: https://theforkedspoon.com/pho-recipe/
 source_name: The Forked Spoon
 tags: [vietnamese, soup, noodles, beef, broth]
-servings: "12 bowls of pho (highly variable)"
-time: "Prep 1 hr, Cook 8 hr, Total 9 hr"
+servings: "12 bowls (yield varies)"
+time: "Prep 1 hr · Cook 8 hr"
 ---
 ## Ingredients
 

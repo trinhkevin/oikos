@@ -4,8 +4,8 @@ slug: pad-see-ew
 source_url: https://www.recipetineats.com/thai-stir-fried-noodles-pad-see-ew/
 source_name: RecipeTin Eats
 tags: [thai, noodles, stir-fry, chicken, weeknight]
-servings: "2-3 people"
-time: "Prep 8 min, Cook 10 min, Total 18 min"
+servings: "2-3"
+time: "Prep 8 min · Cook 10 min"
 ---
 ## Ingredients
 - 200g / 7 oz dried wide rice stick noodles, or 15 oz / 450g fresh wide flat rice noodles (Sen Yai)

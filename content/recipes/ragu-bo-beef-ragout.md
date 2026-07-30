@@ -4,8 +4,8 @@ slug: ragu-bo-beef-ragout
 source_url: https://feedthepudge.com/ragu-bo-beef-ragout/
 source_name: Feed the Pudge
 tags: [vietnamese, beef, stew, braise, comfort-food]
-servings: "4-6 servings"
-time: "Prep 20 min, Cook 2 hr 30 min"
+servings: "4-6"
+time: "Prep 20 min · Cook 2 hr 30 min"
 ---
 ## Ingredients
 - 3 lb beef shank

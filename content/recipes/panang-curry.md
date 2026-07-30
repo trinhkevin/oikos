@@ -5,7 +5,7 @@ source_url: https://tastesbetterfromscratch.com/panang-curry/
 source_name: Tastes Better From Scratch
 tags: [thai, curry, chicken, coconut, weeknight]
 servings: "5"
-time: "40 minutes total (15 min prep, 25 min cook)"
+time: "Prep 15 min · Cook 25 min"
 ---
 ## Ingredients
 - 1 tablespoon oil

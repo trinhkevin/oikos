@@ -5,7 +5,7 @@ source_url: https://www.koreanbapsang.com/bibim-guksu-korean-spicy-cold-noodles/
 source_name: Korean Bapsang
 tags: [korean, noodles, cold, spicy, summer]
 servings: "2"
-time: "15 min prep, 10 min cook"
+time: "Prep 15 min · Cook 10 min"
 ---
 ## Ingredients
 - 8 ounces buckwheat noodles (memil guksu) or wheat flour noodles (somyeon/somen)

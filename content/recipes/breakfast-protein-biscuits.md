@@ -5,7 +5,7 @@ source_url: https://nourishedbynic.com/breakfast-protein-biscuits/
 source_name: Nourished by Nic
 tags: [breakfast, protein, biscuits, baking, savory]
 servings: "12 biscuits"
-time: "Prep 30 min | Cook 25 min | Total 55 min"
+time: "Prep 30 min · Cook 25 min"
 ---
 ## Ingredients
 - 1¾ cups plain 2% Greek yogurt

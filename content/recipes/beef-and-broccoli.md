@@ -2,6 +2,8 @@
 title: Beef and Broccoli+
 slug: beef-and-broccoli
 tags: [weeknight, beef, stir-fry]
+time: "20 min"
+servings: "4"
 ---
 ## Ingredients
 - Beef

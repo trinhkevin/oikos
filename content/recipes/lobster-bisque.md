@@ -5,7 +5,7 @@ source_url: https://cafedelites.com/lobster-bisque/
 source_name: Cafe Delites
 tags: [soup, seafood, lobster, special-occasion, creamy]
 servings: "4"
-time: "1 hr 15 min total (20 min prep, 55 min cook)"
+time: "Prep 20 min · Cook 55 min"
 ---
 ## Ingredients
 

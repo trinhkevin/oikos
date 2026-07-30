@@ -5,7 +5,7 @@ source_url: https://www.hungryhuy.com/dua-chua-recipe-vietnamese-pickled-mustard
 source_name: Hungry Huy
 tags: [vietnamese, pickle, fermented, side, condiment]
 servings: "6"
-time: "4 days 25 minutes (15 min prep, 10 min cook, 4 days pickling/drying)"
+time: "Prep 15 min · Cook 10 min · Pickle 4 days"
 ---
 ## Ingredients
 - 2 lb large head of gai choi (Asian mustard greens)

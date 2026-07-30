@@ -4,8 +4,8 @@ slug: protein-waffles
 source_url: https://thebigmansworld.com/protein-waffles/
 source_name: The Big Man's World
 tags: [breakfast, protein, high-protein, waffles, quick]
-servings: "2 servings (4 waffles)"
-time: "10 minutes (5 min prep, 5 min cook)"
+servings: "4 waffles"
+time: "Prep 5 min · Cook 5 min"
 ---
 ## Ingredients
 - 1/2 cup rolled oats (45g)

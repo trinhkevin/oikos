@@ -2,6 +2,8 @@
 title: Hummus
 slug: hummus
 tags: [appetizer, vegetarian, dip, middle-eastern]
+time: "20 min"
+servings: "6"
 ---
 ## Ingredients
 - 1 16 oz can of chickpeas

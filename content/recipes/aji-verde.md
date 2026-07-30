@@ -5,7 +5,7 @@ source_url: https://cookieandkate.com/aji-verde-recipe/
 source_name: Cookie and Kate
 tags: [sauce, peruvian, condiment, spicy, vegetarian]
 servings: "1 1/4 cups"
-time: "10 minutes"
+time: "10 min"
 ---
 ## Ingredients
 - 1/2 cup mayonnaise

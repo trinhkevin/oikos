@@ -3,7 +3,7 @@ title: Lemon Shrimp Pasta
 slug: lemon-shrimp-pasta
 tags: [pasta, shrimp, seafood, quick, weeknight]
 servings: "2-3"
-time: "20 minutes"
+time: "20 min"
 ---
 ## Ingredients
 - 8 oz (225 g) bucatini

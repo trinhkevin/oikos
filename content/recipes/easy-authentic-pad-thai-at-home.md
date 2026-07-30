@@ -4,8 +4,8 @@ slug: easy-authentic-pad-thai-at-home
 source_url: https://www.joshuaweissman.com/recipes/best-pad-thai-recipe
 source_name: Joshua Weissman
 tags: [thai, noodles, stir-fry, chicken, weeknight]
-servings: "4 people"
-time: "40 min prep + 15 min cook"
+servings: "4"
+time: "Prep 40 min · Cook 15 min"
 ---
 ## Ingredients
 

@@ -4,8 +4,8 @@ slug: do-chua
 source_url: https://www.simplyrecipes.com/recipes/vietnamese_daikon_and_carrot_pickles/
 source_name: Simply Recipes
 tags: [vietnamese, pickle, side, condiment, quick]
-servings: "5 pints (20 servings)"
-time: "20 minutes prep (plus overnight pickling)"
+servings: "5 pints"
+time: "Prep 20 min · Pickle overnight"
 ---
 ## Ingredients
 - 2 pounds carrots (about 5 medium sized carrots), peeled

@@ -5,7 +5,7 @@ source_url: https://www.foodandwine.com/crunchy-vietnamese-chicken-salad-6417611
 source_name: Food & Wine
 tags: [vietnamese, salad, chicken, gluten-free]
 servings: "4"
-time: "45 minutes"
+time: "45 min"
 ---
 ## Ingredients
 - 2 tablespoons granulated sugar

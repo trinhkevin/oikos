@@ -5,7 +5,7 @@ source_url: https://tastesbetterfromscratch.com/pho-noodle-soup/
 source_name: Tastes Better From Scratch
 tags: [vietnamese, soup, noodles, beef, quick]
 servings: "6"
-time: "1 hour (Prep: 20 minutes, Cook: 40 minutes)"
+time: "Prep 20 min · Cook 40 min"
 ---
 ## Ingredients
 - 8 oz dried rice vermicelli noodles

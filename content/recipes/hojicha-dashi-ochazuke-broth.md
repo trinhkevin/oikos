@@ -3,6 +3,7 @@ title: Hojicha-Dashi Ochazuke Broth
 slug: hojicha-dashi-ochazuke-broth
 tags: [japanese, tea, broth, rice, comfort-food]
 servings: "5"
+time: "20 min"
 ---
 ## Ingredients
 - 5 hojicha tea bags
