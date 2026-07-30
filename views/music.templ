@@ -12,8 +12,8 @@ templ musicBody(nowPlaying *spotify.Track, nowPlayingErr bool, queue []spotify.T
 	<div id="now-playing-fragment" hx-get="/music/now-playing" hx-trigger="every 6s" hx-swap="innerHTML">
 		@NowPlayingFragment(nowPlaying, nowPlayingErr)
 	</div>
-	<div class="music-search-wrapper">
-		<input type="search" name="q" placeholder="Search for a song" class="music-search-input"
+	<div class="search-bar">
+		<input type="search" name="q" placeholder="Search for a song" class="search-input"
 			hx-get="/music/search" hx-trigger="keyup changed delay:300ms" hx-target="#queue-panel"/>
 	</div>
 	<div id="queue-panel">

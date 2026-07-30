@@ -844,15 +844,16 @@ progress {
 	.toast { animation: none; opacity: 1; }
 }
 
-/* ---- Music search bar ----
+/* ---- Search bar ----
    A pill-shaped search field with a drawn (not emoji) magnifying-glass
    icon -- the Spotify-style search-chrome cue, in the site's own
-   restrained geometric vocabulary. */
-.music-search-wrapper {
+   restrained geometric vocabulary. Shared by Music search and Recipes
+   search. */
+.search-bar {
 	position: relative;
 	margin: 1.25rem 0 0.75rem;
 }
-.music-search-wrapper::before {
+.search-bar::before {
 	content: "";
 	position: absolute;
 	left: 1.1rem;
@@ -864,7 +865,7 @@ progress {
 	transform: translateY(-65%);
 	pointer-events: none;
 }
-.music-search-wrapper::after {
+.search-bar::after {
 	content: "";
 	position: absolute;
 	left: 1.75rem;
@@ -876,7 +877,7 @@ progress {
 	transform-origin: left center;
 	pointer-events: none;
 }
-input[type="search"].music-search-input {
+input[type="search"].search-input {
 	margin-top: 0;
 	padding-left: 2.6rem;
 	border-radius: 999px;
@@ -1236,3 +1237,36 @@ input[type="search"].music-search-input {
 	background: var(--card-bg);
 }
 .admin-entry.admin-hidden { opacity: 0.55; }
+
+/* ---- Recipes ----
+   Filter chips reuse the Menu tag look (.menu-item-tag) but as
+   clickable buttons with an active state; hidden cards are removed
+   from layout entirely (not just visually) so the grid reflows. */
+.recipe-filter-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	margin: 0 0 1.25rem;
+	padding: 0;
+	list-style: none;
+}
+.recipe-filter-chip {
+	font-family: "Space Grotesk", Georgia, sans-serif;
+	font-size: 0.68rem;
+	font-weight: 500;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--accent);
+	background: var(--accent-soft);
+	border: none;
+	border-radius: var(--radius-sm);
+	padding: 0.3rem 0.65rem;
+	cursor: pointer;
+}
+.recipe-filter-chip-active {
+	background: var(--accent);
+	color: var(--ground);
+}
+.recipe-card[hidden] {
+	display: none;
+}

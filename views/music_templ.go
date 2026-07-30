@@ -70,7 +70,7 @@ func musicBody(nowPlaying *spotify.Track, nowPlayingErr bool, queue []spotify.Tr
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div><div class=\"music-search-wrapper\"><input type=\"search\" name=\"q\" placeholder=\"Search for a song\" class=\"music-search-input\" hx-get=\"/music/search\" hx-trigger=\"keyup changed delay:300ms\" hx-target=\"#queue-panel\"></div><div id=\"queue-panel\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div><div class=\"search-bar\"><input type=\"search\" name=\"q\" placeholder=\"Search for a song\" class=\"search-input\" hx-get=\"/music/search\" hx-trigger=\"keyup changed delay:300ms\" hx-target=\"#queue-panel\"></div><div id=\"queue-panel\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
